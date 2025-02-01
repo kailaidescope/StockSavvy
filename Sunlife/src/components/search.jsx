@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import StockGraph from './stock-graph';
+import TickerGraph from './ticker-graph';
 
 const Search = () => {
   const { stock } = useParams();
@@ -23,7 +24,7 @@ const Search = () => {
         <p>Here are some details about the stock {decodeURIComponent(stock)}.</p>
       </div>
       <div className="stock-graph">
-        <StockGraph />
+        <TickerGraph />
       </div>
       <style jsx>{`
         .stock-info {
