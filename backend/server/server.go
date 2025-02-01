@@ -44,12 +44,33 @@ func GetNewServer() (*Server, error) {
 			c.JSON(http.StatusOK, gin.H{"status": "This is the API root. To access a specific version, add /v<version_number> to the end of the URL. Available versions: v1"})
 		})
 
+		// Contains all routes relating to version 1 of the API
 		v1 := api.Group("/v1")
 		{
 			// Gives information about this particular version
 			v1.GET("", func(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{"status": "This is version 1 of the API. It is the current version."})
 			})
+
+			// Contains all routes relating to stocks
+			stocks := v1.Group("/stocks")
+			{
+
+				// Contains all routes relating to tickers
+				tickers := stocks.Group("/tickers")
+				{
+
+					// Contains all routes relating to a specific ticker
+					searchTicker := tickers.Group("/:symbol")
+					{
+						// Returns information about a ticker
+						searchTicker.GET("", server.GetTickerInfo)
+
+						// Returns the historical prices of a ticker
+						searchTicker.GET("/history", server.GetTickerHistory)
+					}
+				}
+			}
 
 			/* // Contains all routes relating to logging in and authenticating a user
 			auth := v1.Group("/auth")
