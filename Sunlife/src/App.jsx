@@ -1,5 +1,6 @@
 import React from 'react';
 import './App.css';
+import StockGraph from './components/stock-graph';
 
 const InvestmentDashboard = () => {
   return (
@@ -9,9 +10,7 @@ const InvestmentDashboard = () => {
         {/* Stock Graph Section */}
         <div className="graph-section">
           <h2>Market Overview</h2>
-          <div className="graph-placeholder">
-            <span>Stock Graph Placeholder</span>
-          </div>
+          <StockGraph />
         </div>
 
         {/* Stock List Section */}
