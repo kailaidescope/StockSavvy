@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { BsFillChatRightTextFill } from "react-icons/bs";
 import TickerGraph from './ticker-graph';
+import { useSymbol } from '../contexts/symbol-context';
 
 const mockData = [
   {
@@ -29,14 +30,15 @@ const mockData = [
 
 const TickerList = () => {
   const [expandedStock, setExpandedStock] = useState(null);
+  const {selectedSymbol, setSelectedSymbol} = useSymbol();
 
   const handleClickItem = (symbol) => {
     setExpandedStock(expandedStock === symbol ? null : symbol);
   }
 
-  const handleClickChat = (event) => {
+  const handleClickChat = (event, symbol) => {
     event.stopPropagation();
-    alert("chatting");
+    setSelectedSymbol(symbol);
   }
 
   return (
@@ -48,7 +50,7 @@ const TickerList = () => {
             <div className='stock-price-details'>
               <span className="stock-price">${stock.price}</span>
               <span className="stock-trend">{stock.trend}</span>
-              <BsFillChatRightTextFill className='chat' color='grey' onClick={(event) => handleClickChat(event)}/>
+              <BsFillChatRightTextFill className='chat' color='grey' onClick={(event) => handleClickChat(event, stock.symbol)}/>
             </div>
           </div>
           {expandedStock === stock.symbol && (
