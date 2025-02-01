@@ -83,7 +83,7 @@ const TextBox = () => {
         .chat-container {
           display: flex;
           flex-direction: column;
-          height: 100%;
+          height: 90%;
           width: 100%;
           background-color: #f3f4f6;
           border-radius: 8px;
@@ -103,6 +103,7 @@ const TextBox = () => {
           border-radius: 8px;
           margin-bottom: 8px;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          color: black;
         }
 
         .timestamp {
