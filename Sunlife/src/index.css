@@ -1,5 +1,13 @@
+
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --color-cornsilk: #fff8e0;
+  --color-midnight-green: #1b4e5a;
+  --color-jonquil: #ffcb05;
+  --color-platinum: #dedcdc;
+
+  
+  font-family:'Gupter', serif;
   line-height: 1.5;
   font-weight: 400;
 
