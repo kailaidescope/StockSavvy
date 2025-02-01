@@ -90,6 +90,31 @@ body {
   overflow-y: auto;
 }
 
+.stock-item {
+  padding: 12px;
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+}
+
+.stock-item:hover {
+  background-color: #f9fafb;
+}
+
+.stock-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stock-symbol {
+  font-weight: 500;
+  color: #111827;
+}
+
+.stock-price {
+  color: #6b7280;
+}
+
 /* Search Bar */
 .search-container {
   position: relative;
@@ -118,4 +143,22 @@ body {
   width: 20px;
   height: 20px;
   color: #9ca3af;
+}
+
+/* Scrollbar Styling */
+.stock-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.stock-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.stock-list::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+.stock-list::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }

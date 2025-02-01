@@ -49,7 +49,8 @@ const StockGraph = () => {
                 borderRadius: '15px', // Add rounded corners
                 overflow: 'hidden', // Ensure content doesn't overflow the rounded corners
                 boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', // Add box shadow
-
+                backgroundColor: 'white', // Ensure background color is white
+                padding: '16px' // Add some padding
             }} 
         />
     );

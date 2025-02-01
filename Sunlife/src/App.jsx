@@ -1,32 +1,17 @@
 import React from 'react';
-import './App.css';
-import StockGraph from './components/stock-graph';
-import TickerList from './components/ticker-list';
-import SearchBar from './components/search-bar'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import InvestmentDashboard from './components/investment-dashboard';
+import Search from './components/search';
 
-const InvestmentDashboard = () => {
+const App = () => {
   return (
-    <div className="dashboard">
-      {/* Main Content Area */}
-      <div className="main-content">
-        {/* Stock Graph Section */}
-        <div className="graph-section">
-          <h2>Portfolio Overview</h2>
-          <StockGraph />
-        </div>
-
-        {/* Stock List Section */}
-        <div className="stock-list-section">
-          <h2>Watchlist</h2>
-          <div className="stock-list">
-            <TickerList />
-          </div>
-        </div>
-      </div>
-
-      <SearchBar/>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<InvestmentDashboard />} />
+        <Route path="/search/:stock" element={<Search />} />
+      </Routes>
+    </Router>
   );
 };
 
-export default InvestmentDashboard;
+export default App;
