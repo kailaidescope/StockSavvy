@@ -17,8 +17,8 @@ const StockGraph = () => {
             });
 
             const lineSeries = chart.addSeries(LineSeries, {
-                color: '#2962FF',
-                lineWidth: 2
+                color: '#1b4e5a',
+                lineWidth: 3
             });
 
             
@@ -46,8 +46,10 @@ const StockGraph = () => {
             ref={chartContainerRef} 
             style={{ 
                 width: '100%', 
-                height: '100%',
-                minHeight: '400px' 
+                borderRadius: '15px', // Add rounded corners
+                overflow: 'hidden', // Ensure content doesn't overflow the rounded corners
+                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)', // Add box shadow
+
             }} 
         />
     );
