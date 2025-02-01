@@ -13,6 +13,18 @@ const App = () => {
         <Route path="/advanced-search" element= {<AdvancedSearch/>}/>
       </Routes>
     </Router>
+import { SymbolProvider } from './contexts/symbol-context';
+
+const App = () => {
+  return (
+    <SymbolProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<InvestmentDashboard />} />
+          <Route path="/search/:stock" element={<Search />} />
+        </Routes>
+      </Router>
+    </SymbolProvider> 
   );
 };
 

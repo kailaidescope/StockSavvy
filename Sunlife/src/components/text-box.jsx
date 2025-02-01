@@ -1,16 +1,28 @@
 import React, { useState, useRef, useEffect } from "react";
 import { FiSend, FiMic, FiCopy } from "react-icons/fi";
 import { format } from "date-fns";
+import { useSymbol } from "../contexts/symbol-context";
 
 const TextBox = () => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
+  const {selectedSymbol, setSelectedSymbol} = useSymbol();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  useEffect(() => {
+    if(selectedSymbol === '') return;
+    const newMessage = {
+      text: `Can you tell me why ${selectedSymbol} has been performing like this recently?`,
+      timestamp: new Date(),
+    }
+    setMessages([...messages, newMessage]);
+    setSelectedSymbol('');
+  }, [selectedSymbol])
 
   useEffect(() => {
     scrollToBottom();
@@ -182,6 +194,8 @@ const TextBox = () => {
           border: 1px solid #ccc;
           resize: none;
           box-sizing: border-box;
+          background-color: white;
+          color: black;
         }
       `}</style>
     </div>
