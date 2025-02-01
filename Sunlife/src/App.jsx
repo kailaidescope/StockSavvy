@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import InvestmentDashboard from './components/investment-dashboard';
-import Search from './components/search';
+import Search from './components/search-page';
 
 const App = () => {
   return (

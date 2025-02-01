@@ -2,7 +2,7 @@ import React from 'react';
 import '../App.css';
 import StockGraph from './stock-graph';
 import TickerList from './ticker-list';
-import SearchBar from './search-bar'
+import SearchBar from './side-bar'
 
 const InvestmentDashboard = () => {
   return (
