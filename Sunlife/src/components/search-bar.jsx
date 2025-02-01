@@ -1,4 +1,5 @@
 import React from 'react';
+import DropdownMenu from './dropdown-menu';
 
 const SearchBar = () => {
   return (
@@ -24,20 +25,21 @@ const SearchBar = () => {
               d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
             />
           </svg>
+          <DropdownMenu />
+
         </div>
       </div>
       <style jsx>{`
         .sidebar {
           padding: 16px;
-          background-color: var(--color-platinum);
+          background-color: #f3f4f6;
           border-radius: 8px;
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
         .search-container {
           display: flex;
           align-items: center;
-          background-color: white;
+          background-color: #1b4e5a;
           border-radius: 8px;
           padding: 8px;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -50,13 +52,15 @@ const SearchBar = () => {
           padding: 8px;
           font-size: 16px;
           border-radius: 8px;
+          background-color: #1b4e5a; /* Explicitly set background color */
+          color: white; /* Explicitly set text color */
         }
 
         .search-icon {
           width: 24px;
           height: 24px;
           margin-left: 8px;
-          color: var(--color-midnight-green);
+          stroke: white;
         }
       `}</style>
     </>
