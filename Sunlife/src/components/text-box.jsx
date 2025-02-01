@@ -9,16 +9,18 @@ const TextBox = () => {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
   const {selectedSymbol, setSelectedSymbol} = useSymbol();
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
-    if(selectedSymbol === '') return;
+    if(selectedSymbol === '' || isWaitingForResponse) return;
     const newMessage = {
       text: `Can you tell me why ${selectedSymbol} has been performing like this recently?`,
       timestamp: new Date(),
+      className: "userMessage"
     }
     setMessages([...messages, newMessage]);
     setSelectedSymbol('');
@@ -28,11 +30,17 @@ const TextBox = () => {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    if(messages.length === 0 || (messages.slice(-1)).className === 'aiMessage') return;
+    setIsWaitingForResponse(true);
+  }, [messages])
+
   const handleSendMessage = () => {
     if (inputMessage.trim() !== "") {
       const newMessage = {
         text: inputMessage,
         timestamp: new Date(),
+        className: "userMessage"
       };
       setMessages([...messages, newMessage]);
       setInputMessage("");
@@ -50,7 +58,7 @@ const TextBox = () => {
     <div className="chat-container">
       <div className="messages">
         {messages.map((message, index) => (
-          <div key={index} className="message">
+          <div key={index} className={message.className}>
             <span>{message.text}</span>
             <span className="timestamp">
               {format(message.timestamp, "p, MMMM dd")}
@@ -74,13 +82,29 @@ const TextBox = () => {
             <FiMic size={20} />
           </button>
           <div className="textarea-container">
-            <textarea
+            {/* <textarea
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type your message..."
+              className="input-message"
+            /> */}
+            {isWaitingForResponse ? (
+              <textarea
+              disabled
+              value={inputMessage}
+              placeholder="Waiting for response..."
+              className="input-message"
+            />
+            ) : ( 
+              <textarea
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type your message..."
               className="input-message"
             />
+             )}
           </div>
           <button className="icon-button" onClick={handleSendMessage}>
             <FiSend size={20} />
@@ -109,13 +133,24 @@ const TextBox = () => {
           margin-bottom: 16px;
         }
 
-        .message {
+        .userMessage {
+          background-color: var(--color-cornsilk);
+          padding: 8px;
+          border-radius: 8px;
+          margin-bottom: 8px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          color: black;
+          margin-left: 10%;
+        }
+
+        .aiMessage {
           background-color: white;
           padding: 8px;
           border-radius: 8px;
           margin-bottom: 8px;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
           color: black;
+          margin-right: 10%;
         }
 
         .timestamp {
@@ -161,6 +196,7 @@ const TextBox = () => {
           padding: 16px;
           border-top: 1px solid #ddd;
           background-color: white;
+          border-radius: 10px
         }
 
         .input-container {
