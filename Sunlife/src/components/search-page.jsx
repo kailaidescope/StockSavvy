@@ -11,6 +11,14 @@ const Search = () => {
     navigate('/');
   };
 
+  const handleBuyClick = () => {
+    alert(`Buying ${decodeURIComponent(stock)}`);
+  };
+
+  const handleSellClick = () => {
+    alert(`Selling ${decodeURIComponent(stock)}`);
+  };
+
   return (
     <div className="stock-info">
       <div className="header">
@@ -22,10 +30,15 @@ const Search = () => {
       <div className="stock-details">
         <h2>{decodeURIComponent(stock)}</h2>
         <p>Here are some details about the stock {decodeURIComponent(stock)}.</p>
+        
       </div>
       <div className="stock-graph">
         <TickerGraph />
       </div>
+      <div className="action-buttons">
+          <button className="buy-button" onClick={handleBuyClick}>Buy</button>
+          <button className="sell-button" onClick={handleSellClick}>Sell</button>
+        </div>
       <style jsx>{`
         .stock-info {
           padding: 20px;
@@ -83,6 +96,27 @@ const Search = () => {
           color: #333;
           font-size: 1.2em;
         }
+          
+        .action-buttons {
+          display: flex;
+          gap: 10px;
+          margin-top: 20px;
+        }
+
+        .buy-button, .sell-button {
+          background-color: var(--color-midnight-green);
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 16px;
+        }
+
+        .buy-button:hover, .sell-button:hover {
+          background-color: var(--color-jonquil);
+        }
+
 
         .stock-graph {
           background-color: white;

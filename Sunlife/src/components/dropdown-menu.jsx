@@ -1,14 +1,26 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const DropdownMenu = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+
 
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
   };
+  const handleAdvancedSearch = () => {
+    navigate('/advanced-search');
+  };
 
   return (
     <div className="dropdown">
+              <div className="advanced-search-wrapper">
+      
+      </div>
+        <button onClick={handleAdvancedSearch} className="advanced-search">
+        Advanced Search
+      </button>
       <button onClick={toggleDropdown} className="dropdown-toggle">
         Menu
       </button>
@@ -24,6 +36,13 @@ const DropdownMenu = () => {
           position: relative;
           display: inline-block;
         background-color: #ffcb05;
+
+        }
+        .advanced-search{
+       margin-right:20px;
+                  position: relative;
+          display: inline-block;
+                background-color: #ffcb05;
 
         }
 
