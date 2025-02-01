@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import './ticker-list.css'
 import { BsFillChatRightTextFill } from "react-icons/bs";
+import TickerGraph from './ticker-graph';
 
 const mockData = [
   {
@@ -53,8 +53,7 @@ const TickerList = () => {
           </div>
           {expandedStock === stock.symbol && (
             <div className="stock-graph">
-              {/* Placeholder for the stock graph */}
-              <p>Graph of {stock.symbol}</p>
+              <TickerGraph />
             </div>
           )}
         </div>
