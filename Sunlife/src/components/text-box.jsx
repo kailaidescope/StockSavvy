@@ -182,6 +182,8 @@ const TextBox = () => {
           border: 1px solid #ccc;
           resize: none;
           box-sizing: border-box;
+          background-color: white;
+          color: black;
         }
       `}</style>
     </div>
