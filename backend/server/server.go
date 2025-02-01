@@ -74,6 +74,9 @@ func GetNewServer() (*Server, error) {
 
 						// Returns the historical prices of a ticker
 						searchTicker.GET("/history", server.GetTickerHistory)
+
+						// Returns the news sentiment of a ticker
+						searchTicker.GET("/news", server.GetTickerNews)
 					}
 				}
 			}
