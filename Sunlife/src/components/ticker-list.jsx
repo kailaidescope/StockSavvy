@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import './ticker-list.css'
+import { BsFillChatRightTextFill } from "react-icons/bs";
 
 const mockData = [
   {
@@ -15,45 +16,73 @@ const mockData = [
   {
     symbol: "AMZN",
     price: "10.00",
-    trend: "+0.01"
+    trend: "+0.01",
+    emoji: '🥶'
   },
   {
     symbol: "MSFT",
     price: "10.00",
-    trend: "+0.01"
+    trend: "+0.01",
+    emoji: '🔥'
   },
 ]
 
 const TickerList = () => {
+  const [expandedStock, setExpandedStock] = useState(null);
+
+  const handleClickItem = (symbol) => {
+    setExpandedStock(expandedStock === symbol ? null : symbol);
+  }
+
+  const handleClickChat = (event) => {
+    event.stopPropagation();
+    alert("chatting");
+  }
+
   return (
     <div>
       {mockData.map((stock) => (
-        <div key={stock} className="stock-item">
+        <div key={stock.symbol} className="stock-item" onClick={() => handleClickItem(stock.symbol)}>
           <div className="stock-details">
-            <span className="stock-symbol">{stock.symbol}</span>
+            <span className="stock-symbol">{stock?.emoji} {stock.symbol}</span>
             <div className='stock-price-details'>
               <span className="stock-price">${stock.price}</span>
               <span className="stock-trend">{stock.trend}</span>
+              <BsFillChatRightTextFill className='chat' color='grey' onClick={(event) => handleClickChat(event)}/>
             </div>
           </div>
+          {expandedStock === stock.symbol && (
+            <div className="stock-graph">
+              {/* Placeholder for the stock graph */}
+              <p>Graph of {stock.symbol}</p>
+            </div>
+          )}
         </div>
       ))}
       <style jsx>
         {`
         .stock-item {
     padding: 12px;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid grey;
     cursor: pointer;
 }
 
 .stock-item:hover {
-    background-color: #f9fafb;
+    background-color: #fdf0c4
+}
+
+.stock-item:active {
+    background-color: var(--color-jonquil)
 }
 
 .stock-details {
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+.stock-emoji {
+    flex: 1;
 }
 
 .stock-symbol {
@@ -93,6 +122,16 @@ const TickerList = () => {
 
 .stock-list::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+chat {
+    z-index:1000
+}
+
+.stock-graph {
+    padding: 12px;
+    background-color: #f9f9f9;
+    border-top: 1px solid grey;
 }
 `}
       </style>
