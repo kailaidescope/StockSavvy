@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart, LineSeries } from 'lightweight-charts';
+import { createChart, AreaSeries } from 'lightweight-charts';
 import data from '../data/fake_investment_data.js';
 
 const StockGraph = () => {
@@ -16,7 +16,7 @@ const StockGraph = () => {
                 }
             });
 
-            const lineSeries = chart.addSeries(LineSeries, {
+            const lineSeries = chart.addSeries(AreaSeries, {
                 color: '#1b4e5a',
                 lineWidth: 3
             });
