@@ -1,7 +1,42 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DropdownMenu from './dropdown-menu';
 
+const fakeStocks = [
+  'Apple (AAPL)',
+  'Google (GOOGL)',
+  'Microsoft (MSFT)',
+  'Amazon (AMZN)',
+  'Meta (META)',
+  'Tesla (TSLA)',
+  'Netflix (NFLX)',
+  'Nvidia (NVDA)',
+  'Adobe (ADBE)',
+  'Intel (INTC)',
+];
+
 const SearchBar = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredStocks, setFilteredStocks] = useState([]);
+  const navigate = useNavigate();
+
+  const handleSearch = (event) => {
+    const value = event.target.value;
+    setSearchTerm(value);
+    if (value) {
+      const filtered = fakeStocks.filter((stock) =>
+        stock.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredStocks(filtered);
+    } else {
+      setFilteredStocks([]);
+    }
+  };
+
+  const handleStockClick = (stock) => {
+    navigate(`/search/${encodeURIComponent(stock)}`);
+  };
+
   return (
     <>
       <div className="sidebar">
@@ -10,6 +45,8 @@ const SearchBar = () => {
             type="text"
             placeholder="Search stocks..."
             className="search-input"
+            value={searchTerm}
+            onChange={handleSearch}
           />
           <svg
             className="search-icon"
@@ -26,10 +63,22 @@ const SearchBar = () => {
             />
           </svg>
           <DropdownMenu />
-
         </div>
+        {filteredStocks.length > 0 && (
+          <ul className="search-results">
+            {filteredStocks.map((stock, index) => (
+              <li
+                key={index}
+                className="search-result-item"
+                onClick={() => handleStockClick(stock)}
+              >
+                {stock}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      <style jsx>{`
+      <style>{`
         .sidebar {
           padding: 16px;
           background-color: #f3f4f6;
@@ -56,11 +105,43 @@ const SearchBar = () => {
           color: white; /* Explicitly set text color */
         }
 
+        .search-input::placeholder {
+          color: rgba(255, 255, 255, 0.7); /* Set placeholder text color to light white */
+          font-style: italic; /* Optional: set placeholder text style */
+        }
+
+        .search-input:focus {
+          outline: none; /* Remove halo highlight */
+          box-shadow: none; /* Remove any box shadow */
+        }
+
         .search-icon {
           width: 24px;
           height: 24px;
           margin-left: 8px;
-          stroke: white;
+          margin-right: 100px;
+          stroke: white; /* Set stroke color to white */
+          z-index: 1; /* Ensure the icon is above other elements */
+        }
+
+        .search-results {
+          margin-top: 8px;
+          list-style: none;
+          padding: 0;
+          background-color: white;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          color: black;
+        }
+
+        .search-result-item {
+          padding: 8px;
+          border-bottom: 1px solid #dedcdc;
+          cursor: pointer;
+        }
+
+        .search-result-item:last-child {
+          border-bottom: none;
         }
       `}</style>
     </>

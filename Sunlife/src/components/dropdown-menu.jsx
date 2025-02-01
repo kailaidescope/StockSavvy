@@ -43,6 +43,8 @@ const DropdownMenu = () => {
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
           overflow: hidden;
           z-index: 1;
+         width: 200px; /* Increase width */
+
         }
 
         .dropdown-item {
@@ -50,6 +52,8 @@ const DropdownMenu = () => {
           text-decoration: none;
           color: #1b4e5a;
           display: block;
+        font-size: 16px; /* Increase font size */
+
         }
 
         .dropdown-item:hover {
