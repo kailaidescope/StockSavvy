@@ -79,6 +79,9 @@ func GetNewServer() (*Server, error) {
 						searchTicker.GET("/news", server.GetTickerNews)
 					}
 				}
+
+				// Returns the holdings of a user
+				stocks.GET("/holdings", server.GetHoldings)
 			}
 
 			/* // Contains all routes relating to logging in and authenticating a user

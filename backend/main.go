@@ -15,6 +15,4 @@ func main() {
 	if err != nil {
 		log.Fatal("Could not start the server: ", err)
 	}
-
-	server.TestHoldings()
 }

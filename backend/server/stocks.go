@@ -339,3 +339,13 @@ func (server *Server) GetTickerNews(c *gin.Context) {
 
 	c.JSON(http.StatusOK, news)
 }
+
+// GetTickerHoldings returns the holdings of a stock
+//
+// GET /api/v1/stocks/holdings
+//
+// Output:
+//   - TickerHoldings: the ticker holdings struct
+func (server *Server) GetHoldings(c *gin.Context) {
+	c.JSON(http.StatusOK, testHoldings)
+}

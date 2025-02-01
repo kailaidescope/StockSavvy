@@ -1,9 +1,5 @@
 package server
 
-import (
-	"fmt"
-)
-
 // Returned by /api/v1/stocks/tickers/:symbol
 type TickerInfo struct {
 	Symbol          string `json:"symbol"`
@@ -37,10 +33,6 @@ type Holding struct {
 
 // Dummy data
 
-func TestHoldings() {
-	fmt.Print("Test holdings: ")
-}
-
 var testHoldings = TickerHoldings{
 	Holdings: []Holding{
 		{Symbol: "AAPL", Shares: 1.0},
@@ -48,7 +40,7 @@ var testHoldings = TickerHoldings{
 		{Symbol: "MSFT", Shares: 3.0},
 		{Symbol: "AMZN", Shares: 4.0},
 		{Symbol: "TSLA", Shares: 5.0},
-		{Symbol: "FB", Shares: 1.5},
+		{Symbol: "META", Shares: 1.5},
 		{Symbol: "NFLX", Shares: 2.5},
 		{Symbol: "NVDA", Shares: 3.5},
 		{Symbol: "BABA", Shares: 4.5},
@@ -66,7 +58,7 @@ var testHoldings = TickerHoldings{
 	},
 }
 
-var testTickerHistory = TickerHistory{
+/* var testTickerHistory = TickerHistory{
 	History: []map[string]interface{}{
 		{"time": 1612137600, "value": 100.0},
 		{"time": 1612224000, "value": 101.5},
@@ -120,3 +112,4 @@ var testTickerHistory = TickerHistory{
 		{"time": 1616371200, "value": 149.0},
 	},
 }
+*/
