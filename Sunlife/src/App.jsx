@@ -1,6 +1,7 @@
 import React from 'react';
 import './App.css';
 import StockGraph from './components/stock-graph';
+import TickerList from './components/ticker-list';
 import SearchBar from './components/search-bar'
 
 const InvestmentDashboard = () => {
@@ -18,14 +19,7 @@ const InvestmentDashboard = () => {
         <div className="stock-list-section">
           <h2>Watchlist</h2>
           <div className="stock-list">
-            {['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'META'].map((stock) => (
-              <div key={stock} className="stock-item">
-                <div className="stock-details">
-                  <span className="stock-symbol">{stock}</span>
-                  <span className="stock-price">$0.00</span>
-                </div>
-              </div>
-            ))}
+            <TickerList />
           </div>
         </div>
       </div>
