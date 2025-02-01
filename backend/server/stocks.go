@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,11 +28,13 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 
 	if err != nil {
 		fmt.Println("Error generating request for Polygon.io", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error receiving ticker data"})
 		return
 	}
 	res, err := client.Do(req)
 	if err != nil {
 		fmt.Println("Error sending/receiving request to Polygon.io", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error receiving ticker data"})
 		return
 	}
 	defer res.Body.Close()
@@ -39,28 +42,53 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		fmt.Println("Error reading Polygon.io response", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error receiving ticker data"})
 		return
 	}
 	fmt.Println(string(body))
 
-	var result map[string]interface{}
-	if err := c.ShouldBindJSON(&result); err != nil {
-		fmt.Println("Error unmarshalling Polygon.io response", err)
+	// Unmarshall the unmarshalledBodyà
+	var unmarshalledBody map[string]interface{}
+	if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
+		fmt.Println("Error unmarshalling response", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error receiving ticker data"})
 		return
 	}
-	results, ok := result["results"].([]interface{})
-	if !ok || len(results) == 0 {
-		fmt.Println("Error: results not found or empty")
-		return
-	}
-	firstResult, ok := results[0].(map[string]interface{})
-	if !ok {
-		fmt.Println("Error: first result is not a map")
-		return
-	}
-	fmt.Println(firstResult["name"])
 
-	c.JSON(http.StatusOK, gin.H{"status": "success"})
+	// Convert to correct data types
+	results, ok := unmarshalledBody["results"].([]interface{})
+	if !ok || len(results) == 0 {
+		if !ok {
+			fmt.Println("Error: results not found")
+		} else {
+			fmt.Println("Error: results empty")
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error receiving ticker data"})
+		return
+	}
+
+	// Convert each element to map[string]interface{}
+	var convertedResults []map[string]interface{}
+	for _, result := range results {
+		resultMap, ok := result.(map[string]interface{})
+		if !ok {
+			fmt.Println("Error: result element is not a map")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error receiving ticker data"})
+			return
+		}
+		convertedResults = append(convertedResults, resultMap)
+	}
+
+	// Use convertedResults for further processing
+	info := TickerInfo{
+		Symbol:          fmt.Sprintf("%v", convertedResults[0]["ticker"]),
+		Name:            fmt.Sprintf("%v", convertedResults[0]["name"]),
+		Industry:        "Not yet set",
+		Locale:          fmt.Sprintf("%v", convertedResults[0]["locale"]),
+		PrimaryExchange: fmt.Sprintf("%v", convertedResults[0]["primary_exchange"]),
+	}
+
+	c.JSON(http.StatusOK, info)
 }
 
 // GetTickerHistory returns the historical prices of a stock
