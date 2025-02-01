@@ -1,6 +1,6 @@
 package server
 
-// Returned by /api/v1/stocks/tickers/{symbol}
+// Returned by /api/v1/stocks/tickers/:symbol
 type TickerInfo struct {
 	Symbol          string `json:"symbol"`
 	Name            string `json:"name"`
@@ -9,11 +9,19 @@ type TickerInfo struct {
 	PrimaryExchange string `json:"primary_exchange"`
 }
 
-// Returned by /api/v1/stocks/tickers/{symbol}/history
+// Returned by /api/v1/stocks/tickers/:symbol/history
 type TickerHistory struct {
 	History []map[string]interface{} `json:"history"`
 }
 
+// Returned by /api/v1/stocks/tickers/:symbol
+type TickerNews struct {
+	AverageSentiment float32 `json:"avg_sentiment"`
+	StdDevSentiment  float32 `json:"std_dev_sentiment"`
+	NumArticles      int     `json:"num_articles"`
+}
+
+// Dummy data
 var testTickerHistory = TickerHistory{
 	History: []map[string]interface{}{
 		{"time": 1612137600, "value": 100.0},
