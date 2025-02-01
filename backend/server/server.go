@@ -7,13 +7,17 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/google/generative-ai-go/genai"
 	"github.com/joho/godotenv"
 )
 
 type Server struct {
-	Router     *gin.Engine
-	nytKey     string
-	polygonKey string
+	Router       *gin.Engine
+	GeminiClient *genai.Client
+	GeminiModel  *genai.GenerativeModel
+	nytKey       string
+	polygonKey   string
+	geminiKey    string
 }
 
 func GetNewServer() (*Server, error) {
@@ -29,6 +33,11 @@ func GetNewServer() (*Server, error) {
 		return nil, errors.New("polygon api key not found")
 	}
 
+	geminiKey := os.Getenv("GOOGLE_GEMINI_API_KEY")
+	if geminiKey == "" {
+		return nil, errors.New("gemini api key not found")
+	}
+
 	// Initialize router
 	router := gin.Default()
 
@@ -40,7 +49,10 @@ func GetNewServer() (*Server, error) {
 		Router:     router,
 		nytKey:     nytKey,
 		polygonKey: polygonKey,
+		geminiKey:  geminiKey,
 	}
+
+	server.InitializeModel()
 
 	// Mount routes
 	api := router.Group("/api")
