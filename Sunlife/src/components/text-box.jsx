@@ -2,31 +2,44 @@ import React, { useState, useRef, useEffect } from "react";
 import { FiSend, FiMic, FiCopy } from "react-icons/fi";
 import { format } from "date-fns";
 import { useSymbol } from "../contexts/symbol-context";
+import { useLocation } from "react-router-dom";
 
 const TextBox = () => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
-  const {selectedSymbol, setSelectedSymbol, selectedSymbols, setSelectedSymbols} = useSymbol();
+  const { selectedSymbol, setSelectedSymbol, selectedSymbols, setSelectedSymbols } = useSymbol();
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false)
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+  const location = useLocation()
+
+  const stockData = [
+    { symbol: 'AAPL', name: 'Apple Inc.', sector: 'Technology', price: '180.95', change: '+1.2%' },
+    { symbol: 'MSFT', name: 'Microsoft Corp.', sector: 'Technology', price: '378.85', change: '+0.8%' },
+    { symbol: 'JNJ', name: 'Johnson & Johnson', sector: 'Healthcare', price: '155.42', change: '-0.5%' },
+    { symbol: 'PFE', name: 'Pfizer Inc.', sector: 'Healthcare', price: '28.79', change: '+1.1%' },
+    { symbol: 'JPM', name: 'JPMorgan Chase', sector: 'Finance', price: '167.42', change: '+0.3%' },
+    { symbol: 'BAC', name: 'Bank of America', sector: 'Finance', price: '33.98', change: '-0.7%' }
+  ];
+
+  const sectors = [...new Set(stockData.map(stock => stock.sector))];
 
   useEffect(() => {
-    if(selectedSymbols.length === 0) return;
+    if (selectedSymbols.length === 0) return;
     let text = `Can you tell me more about $${selectedSymbols.toString()}?`
     text = text.replaceAll(',', ', $');
     setInputMessage(text)
   }, [selectedSymbols])
 
   useEffect(() => {
-    if(selectedSymbol === '' || isWaitingForResponse) return;
+    if (selectedSymbol === '' || isWaitingForResponse) return;
     const newMessage = {
       text: `Can you tell me why $${selectedSymbol} has been performing like this recently?`,
       timestamp: new Date(),
-      className: "userMessage"
+      sender: "user"
     }
     setMessages([...messages, newMessage]);
     setSelectedSymbol('');
@@ -37,7 +50,7 @@ const TextBox = () => {
   }, [messages]);
 
   useEffect(() => {
-    if(messages.length === 0 || (messages.slice(-1)).className === 'aiMessage') return;
+    if (messages.length === 0 || (messages.slice(-1)).sender === 'ai') return;
     setIsWaitingForResponse(true);
   }, [messages])
 
@@ -46,7 +59,7 @@ const TextBox = () => {
       const newMessage = {
         text: inputMessage,
         timestamp: new Date(),
-        className: "userMessage"
+        sender: "user"
       };
       setMessages([...messages, newMessage]);
       setInputMessage("");
@@ -59,16 +72,34 @@ const TextBox = () => {
       e.preventDefault();
       handleSendMessage();
     }
-    else if(e.key === "Delete" || e.key === "Backspace") {
+    else if (e.key === "Delete" || e.key === "Backspace") {
       setSelectedSymbols([]);
     }
   };
 
+  const handleSectorButtonPress = (sector) => {
+    setSelectedSymbols([]);
+    setInputMessage(`Can you tell me more about the current financial state of the ${sector} sector?`);
+  }
+
   return (
     <div className="chat-container">
+      {location.pathname === '/advanced-search' ? (
+        <div className="sector-buttons">
+          {sectors.map(sector => (
+            <button
+              key={sector}
+              className={`sector-button`}
+              onClick={() => handleSectorButtonPress(sector.charAt(0).toUpperCase() + sector.slice(1))}
+            >
+              {sector.charAt(0).toUpperCase() + sector.slice(1)}
+            </button>
+          ))}
+        </div>
+      ) : (null)}
       <div className="messages">
         {messages.map((message, index) => (
-          <div key={index} className={message.className}>
+          <div key={index} className={message.sender}>
             <span>{message.text}</span>
             <span className="timestamp">
               {format(message.timestamp, "p, MMMM dd")}
@@ -235,6 +266,22 @@ const TextBox = () => {
           box-sizing: border-box;
           background-color: white;
           color: black;
+        }
+        .sector-button {
+          padding: 8px 16px;
+          border: none;
+          border-radius: 20px;
+          background-color: var(--color-platinum);
+          color: var(--color-midnight-green);
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+
+        .sector-buttons {
+          display: flex;
+          gap: 10px;
+          margin-top: 15px;
+          flex-wrap: wrap;
         }
       `}</style>
     </div>
