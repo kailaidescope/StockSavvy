@@ -27,35 +27,90 @@ type TickerHoldings struct {
 }
 
 type Holding struct {
-	Symbol string  `json:"symbol"`
-	Shares float32 `json:"shares"`
+	Symbol        string                   `json:"symbol"`
+	CurrentShares float32                  `json:"current_shares"`
+	History       []map[string]interface{} `json:"history"`
 }
 
 // Dummy data
+type StockTransaction struct {
+	Symbol      string  `json:"symbol"`
+	TotalShares float32 `json:"total_shares"`
+	ShareChange float32 `json:"share_change"`
+	Date        int64   `json:"date"`
+}
 
-var testHoldings = TickerHoldings{
-	Holdings: []Holding{
-		{Symbol: "AAPL", Shares: 0.1},
-		{Symbol: "GOOGL", Shares: 0.2},
-		{Symbol: "MSFT", Shares: 0.3},
-		{Symbol: "AMZN", Shares: 0.4},
-		{Symbol: "TSLA", Shares: 0.5},
-		{Symbol: "META", Shares: 0.15},
-		{Symbol: "NFLX", Shares: 0.25},
-		{Symbol: "NVDA", Shares: 0.35},
-		{Symbol: "BABA", Shares: 0.45},
-		{Symbol: "V", Shares: 0.55},
-		{Symbol: "JPM", Shares: 0.1},
-		{Symbol: "JNJ", Shares: 0.2},
-		{Symbol: "WMT", Shares: 0.3},
-		{Symbol: "PG", Shares: 0.4},
-		{Symbol: "DIS", Shares: 0.5},
-		{Symbol: "MA", Shares: 0.15},
-		{Symbol: "HD", Shares: 0.25},
-		{Symbol: "VZ", Shares: 0.35},
-		{Symbol: "PYPL", Shares: 0.45},
-		{Symbol: "ADBE", Shares: 0.55},
-	},
+var testTickerPurchases = []StockTransaction{
+	{Symbol: "AAPL", TotalShares: 0.05, ShareChange: 0.05, Date: 1721985246},
+	{Symbol: "AAPL", TotalShares: 0.1, ShareChange: 0.05, Date: 1722285246},
+	{Symbol: "AAPL", TotalShares: 0.15, ShareChange: 0.05, Date: 1722585246},
+	{Symbol: "AAPL", TotalShares: 0.1, ShareChange: -0.05, Date: 1722885246},
+	{Symbol: "GOOGL", TotalShares: 0.1, ShareChange: 0.1, Date: 1723185246},
+	{Symbol: "GOOGL", TotalShares: 0.2, ShareChange: 0.1, Date: 1723485246},
+	{Symbol: "GOOGL", TotalShares: 0.15, ShareChange: -0.05, Date: 1723785246},
+	{Symbol: "MSFT", TotalShares: 0.15, ShareChange: 0.15, Date: 1724085246},
+	{Symbol: "MSFT", TotalShares: 0.3, ShareChange: 0.15, Date: 1724385246},
+	{Symbol: "MSFT", TotalShares: 0.25, ShareChange: -0.05, Date: 1724685246},
+	{Symbol: "AMZN", TotalShares: 0.2, ShareChange: 0.2, Date: 1724985246},
+	{Symbol: "AMZN", TotalShares: 0.4, ShareChange: 0.2, Date: 1725285246},
+	{Symbol: "AMZN", TotalShares: 0.35, ShareChange: -0.05, Date: 1725585246},
+	{Symbol: "TSLA", TotalShares: 0.25, ShareChange: 0.25, Date: 1725885246},
+	{Symbol: "TSLA", TotalShares: 0.5, ShareChange: 0.25, Date: 1726185246},
+	{Symbol: "TSLA", TotalShares: 0.45, ShareChange: -0.05, Date: 1726485246},
+	{Symbol: "META", TotalShares: 0.075, ShareChange: 0.075, Date: 1726785246},
+	{Symbol: "META", TotalShares: 0.15, ShareChange: 0.075, Date: 1727085246},
+	{Symbol: "META", TotalShares: 0.125, ShareChange: -0.025, Date: 1727385246},
+	{Symbol: "NFLX", TotalShares: 0.125, ShareChange: 0.125, Date: 1727685246},
+	{Symbol: "NFLX", TotalShares: 0.25, ShareChange: 0.125, Date: 1727985246},
+	{Symbol: "NFLX", TotalShares: 0.225, ShareChange: -0.025, Date: 1728285246},
+	{Symbol: "NVDA", TotalShares: 0.175, ShareChange: 0.175, Date: 1728585246},
+	{Symbol: "NVDA", TotalShares: 0.35, ShareChange: 0.175, Date: 1728885246},
+	{Symbol: "NVDA", TotalShares: 0.325, ShareChange: -0.025, Date: 1729185246},
+	{Symbol: "BABA", TotalShares: 0.225, ShareChange: 0.225, Date: 1729485246},
+	{Symbol: "BABA", TotalShares: 0.45, ShareChange: 0.225, Date: 1729785246},
+	{Symbol: "BABA", TotalShares: 0.425, ShareChange: -0.025, Date: 1730085246},
+	{Symbol: "V", TotalShares: 0.275, ShareChange: 0.275, Date: 1730385246},
+	{Symbol: "V", TotalShares: 0.55, ShareChange: 0.275, Date: 1730685246},
+	{Symbol: "V", TotalShares: 0.525, ShareChange: -0.025, Date: 1730985246},
+	{Symbol: "JPM", TotalShares: 0.05, ShareChange: 0.05, Date: 1731285246},
+	{Symbol: "JPM", TotalShares: 0.1, ShareChange: 0.05, Date: 1731585246},
+	{Symbol: "JPM", TotalShares: 0.075, ShareChange: -0.025, Date: 1731885246},
+	{Symbol: "JNJ", TotalShares: 0.1, ShareChange: 0.1, Date: 1732185246},
+	{Symbol: "JNJ", TotalShares: 0.2, ShareChange: 0.1, Date: 1732485246},
+	{Symbol: "JNJ", TotalShares: 0.175, ShareChange: -0.025, Date: 1732785246},
+	{Symbol: "WMT", TotalShares: 0.15, ShareChange: 0.15, Date: 1733085246},
+	{Symbol: "WMT", TotalShares: 0.3, ShareChange: 0.15, Date: 1733385246},
+	{Symbol: "WMT", TotalShares: 0.275, ShareChange: -0.025, Date: 1733685246},
+	{Symbol: "PG", TotalShares: 0.2, ShareChange: 0.2, Date: 1733985246},
+	{Symbol: "PG", TotalShares: 0.4, ShareChange: 0.2, Date: 1734285246},
+	{Symbol: "PG", TotalShares: 0.375, ShareChange: -0.025, Date: 1734585246},
+	{Symbol: "DIS", TotalShares: 0.25, ShareChange: 0.25, Date: 1734885246},
+	{Symbol: "DIS", TotalShares: 0.5, ShareChange: 0.25, Date: 1735185246},
+	{Symbol: "DIS", TotalShares: 0.475, ShareChange: -0.025, Date: 1735485246},
+	{Symbol: "MA", TotalShares: 0.075, ShareChange: 0.075, Date: 1735785246},
+	{Symbol: "MA", TotalShares: 0.15, ShareChange: 0.075, Date: 1736085246},
+	{Symbol: "MA", TotalShares: 0.125, ShareChange: -0.025, Date: 1736385246},
+	{Symbol: "HD", TotalShares: 0.125, ShareChange: 0.125, Date: 1736685246},
+	{Symbol: "HD", TotalShares: 0.25, ShareChange: 0.125, Date: 1736985246},
+	{Symbol: "HD", TotalShares: 0.225, ShareChange: -0.025, Date: 1737285246},
+	{Symbol: "VZ", TotalShares: 0.175, ShareChange: 0.175, Date: 1737585246},
+	{Symbol: "VZ", TotalShares: 0.35, ShareChange: 0.175, Date: 1737885246},
+	{Symbol: "VZ", TotalShares: 0.325, ShareChange: -0.025, Date: 1738185246},
+	{Symbol: "PYPL", TotalShares: 0.225, ShareChange: 0.225, Date: 1738485246},
+	{Symbol: "PYPL", TotalShares: 0.45, ShareChange: 0.225, Date: 1738785246},
+	{Symbol: "PYPL", TotalShares: 0.425, ShareChange: -0.025, Date: 1739085246},
+	{Symbol: "ADBE", TotalShares: 0.275, ShareChange: 0.275, Date: 1739385246},
+	{Symbol: "ADBE", TotalShares: 0.55, ShareChange: 0.275, Date: 1739685246},
+	{Symbol: "ADBE", TotalShares: 0.525, ShareChange: -0.025, Date: 1739985246},
+	{Symbol: "INTC", TotalShares: 0.3, ShareChange: 0.3, Date: 1740285246},
+	{Symbol: "INTC", TotalShares: 0.6, ShareChange: 0.3, Date: 1740585246},
+	{Symbol: "INTC", TotalShares: 0.575, ShareChange: -0.025, Date: 1740885246},
+	{Symbol: "CSCO", TotalShares: 0.35, ShareChange: 0.35, Date: 1741185246},
+	{Symbol: "CSCO", TotalShares: 0.7, ShareChange: 0.35, Date: 1741485246},
+	{Symbol: "CSCO", TotalShares: 0.675, ShareChange: -0.025, Date: 1741785246},
+	{Symbol: "ORCL", TotalShares: 0.4, ShareChange: 0.4, Date: 1742085246},
+	{Symbol: "ORCL", TotalShares: 0.8, ShareChange: 0.4, Date: 1742385246},
+	{Symbol: "ORCL", TotalShares: 0.775, ShareChange: -0.025, Date: 1742685246},
 }
 
 /* var testTickerHistory = TickerHistory{

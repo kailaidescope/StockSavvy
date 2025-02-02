@@ -2,9 +2,11 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -192,6 +194,12 @@ func (server *Server) GetTickerHistory(c *gin.Context) {
 		}
 	}
 
+	for _, record := range convertedValues {
+		if _, exists := record["time"]; exists {
+			record["time"] = record["time"].(float64) / 1000
+		}
+	}
+
 	history := TickerHistory{
 		History: convertedValues,
 	}
@@ -351,5 +359,143 @@ func (server *Server) GetTickerNews(c *gin.Context) {
 // Output:
 //   - TickerHoldings: the ticker holdings struct
 func (server *Server) GetHoldings(c *gin.Context) {
+	// Get the user's holdings
+	holdings := getUniqueHoldings(testTickerPurchases)
+
+	for i, holding := range holdings {
+		// Get the transactions for the holding
+		transactions := getTransactionsByHolding(testTickerPurchases, holding)
+		holdings[i].CurrentShares = transactions[len(transactions)-1].TotalShares
+
+		// Get the history for the holding
+		history, err := server.getTickerHistory(holding.Symbol)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting ticker history"})
+			return
+		}
+
+		for _, record := range history {
+			record["time"] = record["time"].(float64) / 1000
+		}
+	}
+
 	c.JSON(http.StatusOK, testHoldings)
+}
+
+// Gets the unique holdings from a list of transactions
+func getUniqueHoldings(transactions []StockTransaction) []Holding {
+	uniqueHoldings := []Holding{}
+	seen := map[string]bool{}
+
+	for _, transaction := range transactions {
+		if _, ok := seen[transaction.Symbol]; !ok {
+			seen[transaction.Symbol] = true
+			uniqueHoldings = append(uniqueHoldings, Holding{Symbol: transaction.Symbol, CurrentShares: transaction.TotalShares})
+		}
+	}
+
+	return uniqueHoldings
+}
+
+// Gets the transactions for a specific holding, and sort them by date
+func getTransactionsByHolding(transactions []StockTransaction, holding Holding) []StockTransaction {
+	transactionsByHolding := []StockTransaction{}
+
+	for _, transaction := range transactions {
+		if transaction.Symbol == holding.Symbol {
+			transactionsByHolding = append(transactionsByHolding, transaction)
+		}
+	}
+
+	sort.Slice(transactionsByHolding, func(i, j int) bool {
+		return transactionsByHolding[i].Date < transactionsByHolding[j].Date
+	})
+
+	return transactionsByHolding
+}
+
+func (server *Server) getTickerHistory(symbol string) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("https://api.polygon.io/v1/indicators/sma/%s?timespan=day&adjusted=true&window=20&series_type=close&order=asc&limit=100&apiKey=%s", symbol, server.polygonKey)
+	method := "GET"
+
+	defaultErrMsg := "Error receiving ticker history"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+
+	if err != nil {
+		fmt.Println("Error generating request", err)
+		return nil, err
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error sending request", err)
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("Error reading response body", err)
+		return nil, err
+	}
+	//fmt.Println(string(body))
+
+	// Unmarshall the unmarshalledBody
+	var unmarshalledBody map[string]interface{}
+	if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
+		fmt.Println("Error unmarshalling response", err)
+		return nil, err
+	}
+
+	// Check if results exist
+	if _, exists := unmarshalledBody["results"]; !exists {
+		fmt.Println("Error: results not found")
+		return nil, fmt.Errorf(defaultErrMsg)
+	}
+
+	// Convert to correct data types
+	results, ok := unmarshalledBody["results"].(map[string]interface{})
+	if !ok {
+		fmt.Println("Error: results not converted")
+		return nil, fmt.Errorf(defaultErrMsg)
+	}
+
+	// Check if values exist
+	if _, exists := results["values"]; !exists {
+		fmt.Println("Error: values not found")
+		return nil, fmt.Errorf(defaultErrMsg)
+	}
+
+	// Convert to a history list
+	values, ok := results["values"].([]interface{})
+	if !ok {
+		fmt.Println("Error: values not converted")
+		return nil, errors.New("Error converting values")
+	}
+
+	// Convert each element to map[string]interface{}
+	var convertedValues []map[string]interface{}
+	for _, result := range values {
+		resultMap, ok := result.(map[string]interface{})
+		if !ok {
+			fmt.Println("Error: result element is not a map")
+			return nil, errors.New("Error converting result element")
+		}
+		convertedValues = append(convertedValues, resultMap)
+	}
+
+	for _, value := range convertedValues {
+		if timestamp, exists := value["timestamp"]; exists {
+			value["time"] = timestamp
+			delete(value, "timestamp")
+		}
+	}
+
+	history := TickerHistory{
+		History: convertedValues,
+	}
+
+	time.Sleep(12 * time.Second)
+	return history.History, nil
 }
