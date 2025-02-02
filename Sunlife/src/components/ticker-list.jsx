@@ -2,63 +2,9 @@ import React, { useState } from 'react'
 import { BsFillChatRightTextFill } from "react-icons/bs";
 import TickerGraph from './ticker-graph';
 import { useSymbol } from '../contexts/symbol-context';
-
-const stockData = [
-  { 
-    symbol: 'AAPL',
-    name: 'Apple Inc.',
-    sector: 'Technology',
-    price: '180.95',
-    change: '+1.2%',
-    emoji: '🍎',
-    trend: 'Bullish'
-  },
-  { 
-    symbol: 'MSFT',
-    name: 'Microsoft Corp.',
-    sector: 'Technology',
-    price: '378.85',
-    change: '+0.8%',
-    emoji: '💻',
-    trend: 'Bullish'
-  },
-  { 
-    symbol: 'JNJ',
-    name: 'Johnson & Johnson',
-    sector: 'Healthcare',
-    price: '155.42',
-    change: '-0.5%',
-    emoji: '💊',
-    trend: 'Bearish'
-  },
-  { 
-    symbol: 'PFE',
-    name: 'Pfizer Inc.',
-    sector: 'Healthcare',
-    price: '28.79',
-    change: '+1.1%',
-    emoji: '💉',
-    trend: 'Bullish'
-  },
-  { 
-    symbol: 'JPM',
-    name: 'JPMorgan Chase',
-    sector: 'Finance',
-    price: '167.42',
-    change: '+0.3%',
-    emoji: '🏦',
-    trend: 'Neutral'
-  },
-  { 
-    symbol: 'BAC',
-    name: 'Bank of America',
-    sector: 'Finance',
-    price: '33.98',
-    change: '-0.7%',
-    emoji: '💰',
-    trend: 'Bearish'
-  }
-];
+import watchlistStocks from '../data/watchlist'
+const stockData = watchlistStocks
+import InnerListInfo from './inner-list-info'
 
 const TickerList = () => {
   const [expandedStock, setExpandedStock] = useState(null);
@@ -80,7 +26,7 @@ const TickerList = () => {
           <div className="stock-details">
             <div className="stock-main-info">
               <div className="stock-identifier">
-                <span className="stock-symbol">{stock.emoji} {stock.symbol}</span>
+                <span className="stock-symbol"> {stock.symbol}{stock.emoji}</span>
                 <span className="stock-name">{stock.name}</span>
                 <span className="stock-sector">{stock.sector}</span>
               </div>
@@ -89,9 +35,7 @@ const TickerList = () => {
                 <span className={`stock-change ${stock.change.startsWith('+') ? 'positive' : 'negative'}`}>
                   {stock.change}
                 </span>
-                <span className={`stock-trend ${stock.trend.toLowerCase()}`}>
-                  {stock.trend}
-                </span>
+
                 <BsFillChatRightTextFill 
                   className="chat-icon" 
                   onClick={(event) => handleClickChat(event, stock.symbol)}
@@ -100,9 +44,7 @@ const TickerList = () => {
             </div>
           </div>
           {expandedStock === stock.symbol && (
-            <div className="stock-graph">
-              <TickerGraph />
-            </div>
+              <InnerListInfo/>
           )}
         </div>
       ))}
