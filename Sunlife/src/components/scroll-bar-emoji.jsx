@@ -10,8 +10,8 @@ export default function EmojiScrollbar({ symbol, emojiTop, emojiBottom, titletop
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      //const cachedData = localStorage.getItem(`tickerInfo-${symbol}`);
-      const cachedData = null;
+      const cachedData = localStorage.getItem(`tickerInfo-${symbol}`);
+      //const cachedData = null;
       if (cachedData) {
         const parsed = JSON.parse(cachedData);
         setSentimentValue(parsed.sentimentValue);
@@ -24,7 +24,7 @@ export default function EmojiScrollbar({ symbol, emojiTop, emojiBottom, titletop
         const infoString = await getTickerNews(symbol);
         const newsData = JSON.parse(infoString);
 
-        console.log(newsData);
+        //console.log(newsData);
         
         
         setSentimentValue(newsData.avg_sentiment);
