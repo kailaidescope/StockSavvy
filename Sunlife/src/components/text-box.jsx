@@ -45,16 +45,24 @@ const TextBox = () => {
     }
     setMessages((prevMessages) => [...prevMessages, newMessage]);
     setSelectedSymbol('');
+    setInputMessage("");
+    setIsWaitingForResponse(true);
+    setIsTyping(true); // Show typing indicator
+    sendChat(newMessage.text, messages).then(response => {
+      const newMessage = {
+        text: response,
+        timestamp: Math.floor(Date.now() / 1000),
+        sender: "ai"
+      };
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      setIsTyping(false); // Hide typing indicator
+      setIsWaitingForResponse(false);
+    });
   }, [selectedSymbol])
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  useEffect(() => {
-    if (messages.length === 0 || (messages.slice(-1)).sender === 'ai') return;
-    setIsWaitingForResponse(true);
-  }, [messages])
 
   const handleSendMessage = () => {
     if (inputMessage.trim() !== "") {
@@ -66,6 +74,7 @@ const TextBox = () => {
       setMessages((prevMessages) => [...prevMessages, newMessage]);
       setInputMessage("");
       setSelectedSymbols([]);
+      setIsWaitingForResponse(true);
       setIsTyping(true); // Show typing indicator
       sendChat(newMessage.text, messages).then(response => {
         const newMessage = {
@@ -91,8 +100,27 @@ const TextBox = () => {
   };
 
   const handleSectorButtonPress = (sector) => {
+    const newMessage = {
+      text: `Can you tell me more about the current financial state of the ${sector} sector?`,
+      timestamp: Math.floor(Date.now() / 1000),
+      sender: "user"
+    };
     setSelectedSymbols([]);
-    setInputMessage(`Can you tell me more about the current financial state of the ${sector} sector?`);
+    setMessages((prevMessages) => [...prevMessages, newMessage]);
+    setInputMessage("");
+    setSelectedSymbols([]);
+    setIsWaitingForResponse(true);
+    setIsTyping(true); // Show typing indicator
+    sendChat(newMessage.text, messages).then(response => {
+      const newMessage = {
+        text: response,
+        timestamp: Math.floor(Date.now() / 1000),
+        sender: "ai"
+      };
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      setIsTyping(false); // Hide typing indicator
+      setIsWaitingForResponse(false);
+    });
   }
 
   return (
@@ -139,7 +167,7 @@ const TextBox = () => {
             <FiMic size={20} />
           </button>
           <div className="textarea-container">
-            {false ? (
+            {isWaitingForResponse ? (
               <textarea
                 disabled
                 value={inputMessage}
