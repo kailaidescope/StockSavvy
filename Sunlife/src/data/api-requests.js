@@ -1,7 +1,7 @@
 import axios from 'axios';
 import fake_data from '../data/fake_investment_data.js';
 
-const BASE_URL = 'http://172.20.10.2:3000/api/v1';
+const BASE_URL = 'http://localhost:3000/api/v1';
 
 // Configuration for axios requests
 const axiosConfig = {
@@ -18,7 +18,7 @@ const axiosConfig = {
 export const getTickerHistory = async (symbol) => {
     try {
         const response = await axios.get(`${BASE_URL}/stocks/tickers/${symbol}/history`, axiosConfig);
-        return JSON.stringify(response.data[history]);
+        return JSON.stringify(response.data.history);
     } catch (error) {
         console.error('Error fetching ticker history:', error);
         return fake_data; // Fallback to fake data if API call fails
