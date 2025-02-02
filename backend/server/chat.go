@@ -105,8 +105,10 @@ func (server *Server) GenerateContent(c *gin.Context) {
 
 	//fmt.Print(resp)
 
+	printableResponse := getPrintableResponse(resp)
+
 	//printResponse(resp)
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, gin.H{"ai-response": printableResponse})
 }
 
 // compilePrompt takes a prompt and a message history and compiles them into a single string
@@ -450,3 +452,15 @@ func (server *Server) getTickerAggregate(ticker string) (string, error) {
 	}
 	fmt.Println("---")
 } */
+
+func getPrintableResponse(resp *genai.GenerateContentResponse) string {
+	response := ""
+	for _, cand := range resp.Candidates {
+		if cand.Content != nil {
+			for _, part := range cand.Content.Parts {
+				response += fmt.Sprint(part) + "\n"
+			}
+		}
+	}
+	return response
+}
