@@ -61,7 +61,7 @@ const TextBox = () => {
         timestamp: new Date(),
         sender: "user"
       };
-      setMessages([...messages, newMessage]);      
+      setMessages([...messages, newMessage]);
       setInputMessage("");
       setSelectedSymbols([]);
     }
@@ -85,16 +85,19 @@ const TextBox = () => {
   return (
     <div className="chat-container">
       {location.pathname === '/advanced-search' ? (
-        <div className="sector-buttons">
-          {sectors.map(sector => (
-            <button
-              key={sector}
-              className={`sector-button`}
-              onClick={() => handleSectorButtonPress(sector.charAt(0).toUpperCase() + sector.slice(1))}
-            >
-              {sector.charAt(0).toUpperCase() + sector.slice(1)}
-            </button>
-          ))}
+        <div className="sector-buttons-container">
+          <h2 className="sector-buttons-title">Learn more about...</h2>
+          <div className="sector-buttons">
+            {sectors.map(sector => (
+              <button
+                key={sector}
+                className={`sector-button`}
+                onClick={() => handleSectorButtonPress(sector.charAt(0).toUpperCase() + sector.slice(1))}
+              >
+                {sector.charAt(0).toUpperCase() + sector.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
       ) : (null)}
       <div className="messages">
@@ -269,6 +272,13 @@ const TextBox = () => {
           background-color: white;
           color: black;
         }
+        .sector-buttons-container {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-top: 15px;
+          margin-bottom: 15px;
+        }
         .sector-button {
           padding: 8px 16px;
           border: none;
@@ -282,8 +292,10 @@ const TextBox = () => {
         .sector-buttons {
           display: flex;
           gap: 10px;
-          margin-top: 15px;
           flex-wrap: wrap;
+        }
+        .sector-buttons-title {
+          color: black;
         }
       `}</style>
     </div>
