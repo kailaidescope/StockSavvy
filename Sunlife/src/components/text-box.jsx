@@ -61,7 +61,7 @@ const TextBox = () => {
         timestamp: new Date(),
         sender: "user"
       };
-      setMessages([...messages, newMessage]);
+      setMessages([...messages, newMessage]);      
       setInputMessage("");
       setSelectedSymbols([]);
     }
@@ -123,7 +123,7 @@ const TextBox = () => {
             <FiMic size={20} />
           </button>
           <div className="textarea-container">
-            {isWaitingForResponse ? (
+            {false ? (
               <textarea
                 disabled
                 value={inputMessage}
@@ -175,6 +175,7 @@ const TextBox = () => {
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
           color: black;
           margin-left: 10%;
+          font-size: 1.5em;
         }
 
         .ai {
@@ -185,6 +186,7 @@ const TextBox = () => {
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
           color: black;
           margin-right: 10%;
+          font-size: 1.5em;
         }
 
         .timestamp {
