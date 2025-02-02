@@ -2,9 +2,11 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -21,7 +23,7 @@ import (
 //   - TickerInfo: the ticker information struct
 func (server *Server) GetTickerInfo(c *gin.Context) {
 	symbol := c.Param("symbol")
-	url := fmt.Sprintf("https://api.polygon.io/v3/reference/tickers?ticker=%s&active=true&limit=100&apiKey=%s", symbol, server.polygonKey)
+	url := fmt.Sprintf("https://api.polygon.io/v3/reference/tickers?ticker=%s&active=true&limit=100&apiKey=%s", symbol, server.GetPolygonKey())
 	method := "GET"
 
 	defaultErrMsg := "Error receiving ticker info"
@@ -50,7 +52,7 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 	}
 	//fmt.Println(string(body))
 
-	// Unmarshall the unmarshalledBodyà
+	// Unmarshall the unmarshalledBody
 	var unmarshalledBody map[string]interface{}
 	if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
 		fmt.Println("Error unmarshalling response", err)
@@ -92,7 +94,7 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, info)
-	time.Sleep(12 * time.Second)
+	time.Sleep(THROTTLE_TIME * time.Second)
 }
 
 // GetTickerHistory returns the historical prices of a stock
@@ -106,7 +108,7 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 //   - TickerHistory: the ticker history struct
 func (server *Server) GetTickerHistory(c *gin.Context) {
 	symbol := c.Param("symbol")
-	url := fmt.Sprintf("https://api.polygon.io/v1/indicators/sma/%s?timespan=day&adjusted=true&window=20&series_type=close&order=asc&limit=100&apiKey=%s", symbol, server.polygonKey)
+	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/day/2024-06-30/2025-02-01?adjusted=true&sort=asc&limit=5000&apiKey=%s", symbol, server.GetPolygonKey())
 	method := "GET"
 
 	defaultErrMsg := "Error receiving ticker history"
@@ -151,53 +153,49 @@ func (server *Server) GetTickerHistory(c *gin.Context) {
 	}
 
 	// Convert to correct data types
-	results, ok := unmarshalledBody["results"].(map[string]interface{})
+	results, ok := unmarshalledBody["results"].([]interface{})
 	if !ok {
 		fmt.Println("Error: results not converted")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
 		return
 	}
 
-	// Check if values exist
-	if _, exists := results["values"]; !exists {
-		fmt.Println("Error: values not found")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return
-	}
-
-	// Convert to a history list
-	values, ok := results["values"].([]interface{})
-	if !ok {
-		fmt.Println("Error: values not converted")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return
-	}
-
 	// Convert each element to map[string]interface{}
-	var convertedValues []map[string]interface{}
-	for _, result := range values {
+	var convertedResults []map[string]interface{}
+	for _, result := range results {
 		resultMap, ok := result.(map[string]interface{})
 		if !ok {
 			fmt.Println("Error: result element is not a map")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
 			return
 		}
-		convertedValues = append(convertedValues, resultMap)
+		convertedResults = append(convertedResults, resultMap)
 	}
 
-	for _, value := range convertedValues {
-		if timestamp, exists := value["timestamp"]; exists {
-			value["time"] = timestamp
-			delete(value, "timestamp")
+	for _, value := range convertedResults {
+		if timestamp, exists := value["t"]; exists {
+			// Convert to seconds
+			value["time"] = timestamp.(float64) / 1000
+			delete(value, "t")
 		}
+		if close, exists := value["c"]; exists {
+			value["value"] = close
+			delete(value, "c")
+		}
+		delete(value, "v")
+		delete(value, "vw")
+		delete(value, "o")
+		delete(value, "h")
+		delete(value, "l")
+		delete(value, "n")
 	}
 
 	history := TickerHistory{
-		History: convertedValues,
+		History: convertedResults,
 	}
 
 	c.JSON(http.StatusOK, history)
-	time.Sleep(12 * time.Second)
+	time.Sleep(THROTTLE_TIME * time.Second)
 }
 
 // GetTickerNews returns the news sentiment of a stock
@@ -211,7 +209,7 @@ func (server *Server) GetTickerHistory(c *gin.Context) {
 //   - TickerNews: the ticker news struct
 func (server *Server) GetTickerNews(c *gin.Context) {
 	symbol := c.Param("symbol")
-	url := fmt.Sprintf("https://api.polygon.io/v2/reference/news?ticker=%s&order=desc&limit=350&sort=published_utc&apiKey=%s&published_utc.gte=2024-10-11T19:01:33Z", symbol, server.polygonKey)
+	url := fmt.Sprintf("https://api.polygon.io/v2/reference/news?ticker=%s&order=desc&limit=350&sort=published_utc&apiKey=%s&published_utc.gte=2024-10-11T19:01:33Z", symbol, server.GetPolygonKey())
 	method := "GET"
 
 	defaultErrMsg := "Error receiving ticker news"
@@ -341,15 +339,199 @@ func (server *Server) GetTickerNews(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, news)
-	time.Sleep(12 * time.Second)
+	time.Sleep(THROTTLE_TIME * time.Second)
 }
 
-// GetTickerHoldings returns the holdings of a stock
+// GetHoldings returns the holdings of a user
 //
 // GET /api/v1/stocks/holdings
 //
 // Output:
 //   - TickerHoldings: the ticker holdings struct
 func (server *Server) GetHoldings(c *gin.Context) {
-	c.JSON(http.StatusOK, testHoldings)
+	holdings := getUniqueHoldings(testTickerPurchases)
+	c.JSON(http.StatusOK, holdings)
+}
+
+// GetHoldingInfo returns the holdings of a stock
+//
+// GET /api/v1/stocks/holdings/:symbol
+//
+// Input:
+//   - symbol: the ticker's symbol
+//
+// Output:
+//   - TickerHoldings: the ticker holdings struct
+func (server *Server) GetHoldingInfo(c *gin.Context) {
+	// Get the user's holdings
+	holdings := getUniqueHoldings(testTickerPurchases)
+
+	// Get symbol parameter
+	symbol := c.Param("symbol")
+
+	for i, holding := range holdings {
+		if holding.Symbol == symbol {
+			fmt.Println("Processing holding", i, holding)
+			// Get the transactions for the holding
+			transactions := getTransactionsByHolding(testTickerPurchases, holding)
+			holdings[i].CurrentShares = transactions[len(transactions)-1].TotalShares
+
+			// Get the history for the holding
+			history, err := server.getTickerHistory(holding.Symbol)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting ticker history"})
+				return
+			}
+			//fmt.Print("History: ", history)
+
+			currentTransaction := 0
+			// Adjust the value of the holding by the price and the number of shares, according to date
+			for _, record := range history {
+				//fmt.Println("Old Record: ", i, record)
+				if currentTransaction+1 < len(transactions) && record["time"].(float64) > float64(transactions[currentTransaction+1].Date) {
+					record["value"] = float64(transactions[currentTransaction+1].TotalShares) * record["value"].(float64)
+					currentTransaction++
+					record["shares"] = transactions[currentTransaction].TotalShares
+				} else if record["time"].(float64) > float64(transactions[currentTransaction].Date) {
+					record["value"] = float64(transactions[currentTransaction].TotalShares) * record["value"].(float64)
+					record["shares"] = transactions[currentTransaction].TotalShares
+				} else {
+					record["value"] = 0
+					record["shares"] = 0
+				}
+				//fmt.Println("New Record: ", i, record)
+			}
+
+			holding.History = history
+			c.JSON(http.StatusOK, holding)
+			return
+		}
+	}
+
+	c.JSON(http.StatusBadRequest, gin.H{"error": "the requested holding does not exist in the portfolio"})
+}
+
+// Gets the unique holdings from a list of transactions
+func getUniqueHoldings(transactions []StockTransaction) []Holding {
+	sort.Slice(transactions, func(i, j int) bool {
+		return transactions[i].Date < transactions[j].Date
+	})
+	uniqueHoldings := []Holding{}
+	seen := map[string]bool{}
+
+	for _, transaction := range transactions {
+		if _, ok := seen[transaction.Symbol]; !ok {
+			seen[transaction.Symbol] = true
+			uniqueHoldings = append(uniqueHoldings, Holding{Symbol: transaction.Symbol, CurrentShares: transaction.TotalShares})
+		} else {
+			for i, holding := range uniqueHoldings {
+				if holding.Symbol == transaction.Symbol {
+					uniqueHoldings[i].CurrentShares = transaction.TotalShares
+				}
+			}
+		}
+	}
+
+	return uniqueHoldings
+}
+
+// Gets the transactions for a specific holding, and sort them by date
+func getTransactionsByHolding(transactions []StockTransaction, holding Holding) []StockTransaction {
+	transactionsByHolding := []StockTransaction{}
+
+	for _, transaction := range transactions {
+		if transaction.Symbol == holding.Symbol {
+			transactionsByHolding = append(transactionsByHolding, transaction)
+		}
+	}
+
+	sort.Slice(transactionsByHolding, func(i, j int) bool {
+		return transactionsByHolding[i].Date < transactionsByHolding[j].Date
+	})
+
+	return transactionsByHolding
+}
+
+func (server *Server) getTickerHistory(symbol string) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/day/2024-06-30/2025-02-01?adjusted=true&sort=asc&limit=5000&apiKey=%s", symbol, server.GetPolygonKey())
+	method := "GET"
+
+	defaultErrMsg := "Error receiving ticker history"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+
+	if err != nil {
+		fmt.Println("Error generating request", err)
+		return nil, err
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error sending request", err)
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("Error reading response body", err)
+		return nil, err
+	}
+	//fmt.Println(string(body))
+
+	// Unmarshall the unmarshalledBody
+	var unmarshalledBody map[string]interface{}
+	if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
+		fmt.Println("Error unmarshalling response", err)
+		return nil, err
+	}
+
+	// Check if results exist
+	if _, exists := unmarshalledBody["results"]; !exists {
+		fmt.Println("Error: results not found")
+		return nil, fmt.Errorf(defaultErrMsg)
+	}
+
+	// Convert to correct data types
+	results, ok := unmarshalledBody["results"].([]interface{})
+	if !ok {
+		fmt.Println("Error: results not converted")
+		return nil, fmt.Errorf(defaultErrMsg)
+	}
+
+	// Convert each element to map[string]interface{}
+	var convertedResults []map[string]interface{}
+	for _, result := range results {
+		resultMap, ok := result.(map[string]interface{})
+		if !ok {
+			fmt.Println("Error: result element is not a map")
+			return nil, errors.New("error converting result element")
+		}
+		convertedResults = append(convertedResults, resultMap)
+	}
+
+	for _, value := range convertedResults {
+		if timestamp, exists := value["t"]; exists {
+			// Convert to seconds
+			value["time"] = timestamp.(float64) / 1000
+			delete(value, "t")
+		}
+		if close, exists := value["c"]; exists {
+			value["value"] = close
+			delete(value, "c")
+		}
+		delete(value, "v")
+		delete(value, "vw")
+		delete(value, "o")
+		delete(value, "h")
+		delete(value, "l")
+		delete(value, "n")
+	}
+
+	history := TickerHistory{
+		History: convertedResults,
+	}
+
+	time.Sleep(THROTTLE_TIME * time.Second)
+	return history.History, nil
 }
