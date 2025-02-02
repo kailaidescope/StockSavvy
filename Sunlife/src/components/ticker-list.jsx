@@ -158,7 +158,7 @@ const TickerList = () => {
 
         .stock-graph {
           margin-top: 16px;
-          padding: 16px;
+          padding: 0;
           background: var(--color-platinum);
           border-radius: 8px;
         }
