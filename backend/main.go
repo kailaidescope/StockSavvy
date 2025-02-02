@@ -16,5 +16,5 @@ func main() {
 		log.Fatal("Could not start the server: ", err)
 	}
 
-	server.TestHoldings()
+	gin_server.GeminiClient.Close()
 }
