@@ -344,7 +344,16 @@ func (server *Server) GetTickerNews(c *gin.Context) {
 	time.Sleep(throttleTime * time.Second)
 }
 
+// GetHoldings returns the holdings of a user
 //
+// GET /api/v1/stocks/holdings
+//
+// Output:
+//   - TickerHoldings: the ticker holdings struct
+func (server *Server) GetHoldings(c *gin.Context) {
+	holdings := getUniqueHoldings(testTickerPurchases)
+	c.JSON(http.StatusOK, holdings)
+}
 
 // GetHoldingInfo returns the holdings of a stock
 //
@@ -396,6 +405,9 @@ func (server *Server) GetHoldingInfo(c *gin.Context) {
 
 // Gets the unique holdings from a list of transactions
 func getUniqueHoldings(transactions []StockTransaction) []Holding {
+	sort.Slice(transactions, func(i, j int) bool {
+		return transactions[i].Date < transactions[j].Date
+	})
 	uniqueHoldings := []Holding{}
 	seen := map[string]bool{}
 
@@ -403,6 +415,12 @@ func getUniqueHoldings(transactions []StockTransaction) []Holding {
 		if _, ok := seen[transaction.Symbol]; !ok {
 			seen[transaction.Symbol] = true
 			uniqueHoldings = append(uniqueHoldings, Holding{Symbol: transaction.Symbol, CurrentShares: transaction.TotalShares})
+		} else {
+			for i, holding := range uniqueHoldings {
+				if holding.Symbol == transaction.Symbol {
+					uniqueHoldings[i].CurrentShares = transaction.TotalShares
+				}
+			}
 		}
 	}
 

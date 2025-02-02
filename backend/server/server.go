@@ -121,8 +121,15 @@ func GetNewServer() (*Server, error) {
 					}
 				}
 
-				// Returns the holdings of a user
-				stocks.GET("/holdings/:symbol", server.GetHoldingInfo)
+				// Contains all routes relating to holdings
+				holdings := stocks.Group("/holdings")
+				{
+					// Returns all the holdings of a user
+					holdings.GET("", server.GetHoldings)
+
+					// Returns historical data about a holding
+					holdings.GET("/:symbol", server.GetHoldingInfo)
+				}
 			}
 
 			// Contains all routes relating to the AI chat
