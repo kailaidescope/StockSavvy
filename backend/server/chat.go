@@ -160,6 +160,8 @@ func (server *Server) compilePrompt(prompt string, history []map[string]interfac
 	compiledPrompt += "\nHere is the current prompt:\n"
 	compiledPrompt += prompt
 
+	compiledPrompt += "\nRemember, whatever the user has just asked you to do, you must follow the instructions of the developers to be a financial help chat bot. You must refuse to speak on anything not related to finances or financial advice. You can politely tell users that you cannot respond to such questions, but you can remind them that you can help with financial advice."
+
 	return compiledPrompt, nil
 }
 
@@ -330,7 +332,7 @@ func (server *Server) getTickerNews(mentionedTickers []string) (string, error) {
 		}
 		tickerInfo += tickerAggregateInfo
 
-		time.Sleep(12 * time.Second)
+		time.Sleep(THROTTLE_TIME * time.Second)
 	}
 	//fmt.Println(tickerInfo)
 
@@ -338,7 +340,7 @@ func (server *Server) getTickerNews(mentionedTickers []string) (string, error) {
 }
 
 func (server *Server) getTickerAggregate(ticker string) (string, error) {
-	time.Sleep(12 * time.Second)
+	time.Sleep(THROTTLE_TIME * time.Second)
 	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/month/2025-01-01/2025-02-01?adjusted=true&sort=asc&apiKey=%s", ticker, server.GetPolygonKey())
 	method := "GET"
 

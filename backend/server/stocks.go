@@ -12,8 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var throttleTime time.Duration = 3
-
 // GetTickerInfo returns information about a stock
 //
 // GET /api/v1/stocks/tickers/{symbol}
@@ -96,7 +94,7 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, info)
-	time.Sleep(throttleTime * time.Second)
+	time.Sleep(THROTTLE_TIME * time.Second)
 }
 
 // GetTickerHistory returns the historical prices of a stock
@@ -197,7 +195,7 @@ func (server *Server) GetTickerHistory(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, history)
-	time.Sleep(throttleTime * time.Second)
+	time.Sleep(THROTTLE_TIME * time.Second)
 }
 
 // GetTickerNews returns the news sentiment of a stock
@@ -341,7 +339,7 @@ func (server *Server) GetTickerNews(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, news)
-	time.Sleep(throttleTime * time.Second)
+	time.Sleep(THROTTLE_TIME * time.Second)
 }
 
 // GetHoldings returns the holdings of a user
@@ -368,39 +366,49 @@ func (server *Server) GetHoldingInfo(c *gin.Context) {
 	// Get the user's holdings
 	holdings := getUniqueHoldings(testTickerPurchases)
 
-	for i, holding := range holdings {
-		fmt.Println("Processing holding", i, holding)
-		// Get the transactions for the holding
-		transactions := getTransactionsByHolding(testTickerPurchases, holding)
-		holdings[i].CurrentShares = transactions[len(transactions)-1].TotalShares
+	// Get symbol parameter
+	symbol := c.Param("symbol")
 
-		// Get the history for the holding
-		history, err := server.getTickerHistory(holding.Symbol)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting ticker history"})
+	for i, holding := range holdings {
+		if holding.Symbol == symbol {
+			fmt.Println("Processing holding", i, holding)
+			// Get the transactions for the holding
+			transactions := getTransactionsByHolding(testTickerPurchases, holding)
+			holdings[i].CurrentShares = transactions[len(transactions)-1].TotalShares
+
+			// Get the history for the holding
+			history, err := server.getTickerHistory(holding.Symbol)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting ticker history"})
+				return
+			}
+			//fmt.Print("History: ", history)
+
+			currentTransaction := 0
+			// Adjust the value of the holding by the price and the number of shares, according to date
+			for _, record := range history {
+				//fmt.Println("Old Record: ", i, record)
+				if currentTransaction+1 < len(transactions) && record["time"].(float64) > float64(transactions[currentTransaction+1].Date) {
+					record["value"] = float64(transactions[currentTransaction+1].TotalShares) * record["value"].(float64)
+					currentTransaction++
+					record["shares"] = transactions[currentTransaction].TotalShares
+				} else if record["time"].(float64) > float64(transactions[currentTransaction].Date) {
+					record["value"] = float64(transactions[currentTransaction].TotalShares) * record["value"].(float64)
+					record["shares"] = transactions[currentTransaction].TotalShares
+				} else {
+					record["value"] = 0
+					record["shares"] = 0
+				}
+				//fmt.Println("New Record: ", i, record)
+			}
+
+			holding.History = history
+			c.JSON(http.StatusOK, holding)
 			return
 		}
-		//fmt.Print("History: ", history)
-
-		currentTransaction := 0
-		// Adjust the value of the holding by the price and the number of shares, according to date
-		for _, record := range history {
-			//fmt.Println("Old Record: ", i, record)
-			if currentTransaction+1 < len(transactions) && record["time"].(float64) > float64(transactions[currentTransaction+1].Date) {
-				record["value"] = float64(transactions[currentTransaction+1].TotalShares) * record["value"].(float64)
-				currentTransaction++
-			} else {
-				record["value"] = float64(transactions[currentTransaction].TotalShares) * record["value"].(float64)
-			}
-			record["shares"] = transactions[currentTransaction].TotalShares
-			//fmt.Println("New Record: ", i, record)
-		}
-
-		holding.History = history
-		fmt.Println("Holdings: ", holding.History)
 	}
 
-	c.JSON(http.StatusOK, holdings)
+	c.JSON(http.StatusBadRequest, gin.H{"error": "the requested holding does not exist in the portfolio"})
 }
 
 // Gets the unique holdings from a list of transactions
@@ -524,6 +532,6 @@ func (server *Server) getTickerHistory(symbol string) ([]map[string]interface{},
 		History: convertedResults,
 	}
 
-	time.Sleep(throttleTime * time.Second)
+	time.Sleep(THROTTLE_TIME * time.Second)
 	return history.History, nil
 }

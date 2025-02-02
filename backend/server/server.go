@@ -4,12 +4,15 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/generative-ai-go/genai"
 	"github.com/joho/godotenv"
 )
+
+var THROTTLE_TIME time.Duration = 2
 
 type Server struct {
 	Router            *gin.Engine
@@ -58,6 +61,11 @@ func GetNewServer() (*Server, error) {
 	newPolygonKey = os.Getenv("POLYGON_API_KEY_4")
 	if newPolygonKey == "" {
 		return nil, errors.New("polygon api key 4 not found")
+	}
+	polygonKeys = append(polygonKeys, newPolygonKey)
+	newPolygonKey = os.Getenv("POLYGON_API_KEY_5")
+	if newPolygonKey == "" {
+		return nil, errors.New("polygon api key 5 not found")
 	}
 	polygonKeys = append(polygonKeys, newPolygonKey)
 
