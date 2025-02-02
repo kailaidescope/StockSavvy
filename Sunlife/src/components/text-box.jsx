@@ -66,6 +66,7 @@ const TextBox = () => {
       setMessages((prevMessages) => [...prevMessages, newMessage]);
       setInputMessage("");
       setSelectedSymbols([]);
+      setIsTyping(true); // Show typing indicator
       sendChat(newMessage.text, messages).then(response => {
         const newMessage = {
           text: response,
@@ -73,7 +74,7 @@ const TextBox = () => {
           sender: "ai"
         };
         setMessages((prevMessages) => [...prevMessages, newMessage]);
-        setIsTyping(false);
+        setIsTyping(false); // Hide typing indicator
         setIsWaitingForResponse(false);
       });
     }
