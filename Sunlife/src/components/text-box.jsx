@@ -8,17 +8,23 @@ const TextBox = () => {
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
-  const {selectedSymbol, setSelectedSymbol} = useSymbol();
+  const {selectedSymbol, setSelectedSymbol, selectedSymbols, setSelectedSymbols} = useSymbol();
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false)
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
+    if(selectedSymbols.length === 0) return;
+    let text = `Can you tell me more about $${selectedSymbols.toString()}?`
+    text = text.replaceAll(',', ', $');
+    setInputMessage(text)
+  }, [selectedSymbols])
+
+  useEffect(() => {
     if(selectedSymbol === '' || isWaitingForResponse) return;
     const newMessage = {
-      text: `Can you tell me why ${selectedSymbol} has been performing like this recently?`,
+      text: `Can you tell me why $${selectedSymbol} has been performing like this recently?`,
       timestamp: new Date(),
       className: "userMessage"
     }
@@ -44,6 +50,7 @@ const TextBox = () => {
       };
       setMessages([...messages, newMessage]);
       setInputMessage("");
+      setSelectedSymbols([]);
     }
   };
 
@@ -51,6 +58,9 @@ const TextBox = () => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+    else if(e.key === "Delete" || e.key === "Backspace") {
+      setSelectedSymbols([]);
     }
   };
 
@@ -82,29 +92,22 @@ const TextBox = () => {
             <FiMic size={20} />
           </button>
           <div className="textarea-container">
-            {/* <textarea
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your message..."
-              className="input-message"
-            /> */}
             {isWaitingForResponse ? (
               <textarea
-              disabled
-              value={inputMessage}
-              placeholder="Waiting for response..."
-              className="input-message"
-            />
-            ) : ( 
+                disabled
+                value={inputMessage}
+                placeholder="Waiting for response..."
+                className="input-message"
+              />
+            ) : (
               <textarea
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your message..."
-              className="input-message"
-            />
-             )}
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Type message here..."
+                className="input-message"
+              />
+            )}
           </div>
           <button className="icon-button" onClick={handleSendMessage}>
             <FiSend size={20} />
