@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getTickerInfo } from '../data/api-requests.js';
+import { getTickerInfo, getTickerNews } from '../data/api-requests.js';
 import "./EmojiScrollbar.css";
 
 export default function EmojiScrollbar({ symbol, emojiTop, emojiBottom, titletop, titlebottom }) {
@@ -10,7 +10,8 @@ export default function EmojiScrollbar({ symbol, emojiTop, emojiBottom, titletop
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const cachedData = localStorage.getItem(`tickerInfo-${symbol}`);
+      //const cachedData = localStorage.getItem(`tickerInfo-${symbol}`);
+      const cachedData = null;
       if (cachedData) {
         const parsed = JSON.parse(cachedData);
         setSentimentValue(parsed.sentimentValue);
@@ -20,15 +21,17 @@ export default function EmojiScrollbar({ symbol, emojiTop, emojiBottom, titletop
         return;
       }
       try {
-        const infoString = await getTickerInfo(symbol);
+        const infoString = await getTickerNews(symbol);
         const newsData = JSON.parse(infoString);
+
+        console.log(newsData);
         
         
-        setSentimentValue(newsData.avg_sentiment );
-        setNumArticles(newsData.num_articles/100);
+        setSentimentValue(newsData.avg_sentiment);
+        setNumArticles(newsData.num_articles);
         
         localStorage.setItem(`tickerInfo-${symbol}`, JSON.stringify({
-          sentimentValue: normalizedSentiment,
+          sentimentValue: newsData.avg_sentiment,
           numArticles: newsData.num_articles
         }));
       } catch (error) {
@@ -49,13 +52,21 @@ export default function EmojiScrollbar({ symbol, emojiTop, emojiBottom, titletop
       <span className="emoji-top" title={titletop}>{emojiTop}</span>
       <input
         type="range"
-        min="0"
-        max="100"
-        value={titletop === "Hot topic" ? numArticles : sentimentValue}
+        step="0.01"
+        min={titletop === "Hot topic" ? 0 : 0}
+        max={titletop === "Hot topic" ? 350 : 2}
+        value={titletop === "Hot topic" ? numArticles : sentimentValue+1}
         className="emoji-range"
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => {
+          const value = e.target.value;
+          if (titletop === "Hot topic") {
+            setNumArticles(value);
+          } else {
+            setSentimentValue(value);
+          }
+        }}
       />
-      <span className="emoji-bottom"title={titlebottom}>{emojiBottom}</span>
+      <span className="emoji-bottom" title={titlebottom}>{emojiBottom}</span>
     </div>
   );
 }
