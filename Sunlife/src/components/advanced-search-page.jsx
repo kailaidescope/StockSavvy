@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import TextBox from './text-box';
 import { useNavigate } from 'react-router-dom';
-
+import { useSymbol } from '../contexts/symbol-context';
 
 const AdvancedSearchPage = () => {
     const navigate = useNavigate();
     const [selectedSector, setSelectedSector] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const { selectedSymbols, setSelectedSymbols } = useSymbol();
 
     const stockData = [
         { symbol: 'AAPL', name: 'Apple Inc.', sector: 'Technology', price: '180.95', change: '+1.2%' },
@@ -24,6 +25,21 @@ const AdvancedSearchPage = () => {
         (stock.symbol.toLowerCase().includes(searchTerm.toLowerCase()) || 
          stock.name.toLowerCase().includes(searchTerm.toLowerCase()))
     );
+
+    const handleDragStart = (event, stock) => {
+        event.dataTransfer.setData('text/plain', stock.symbol);
+    };
+
+    const handleDrop = (event) => {
+        event.preventDefault();
+        const stockSymbol = event.dataTransfer.getData('text/plain');
+        if(selectedSymbols.includes(stockSymbol)) return;
+        setSelectedSymbols([...selectedSymbols, stockSymbol]);
+    };
+
+    const handleDragOver = (event) => {
+        event.preventDefault();
+    };
 
     return (
         <div className="advanced-search-container">
@@ -55,7 +71,12 @@ const AdvancedSearchPage = () => {
                 </div>
                 <div className="stocks-list">
                     {filteredStocks.map(stock => (
-                        <div key={stock.symbol} className="stock-card">
+                        <div 
+                            key={stock.symbol} 
+                            className="stock-card" 
+                            draggable 
+                            onDragStart={(event) => handleDragStart(event, stock)}
+                        >
                             <div className="stock-info">
                                 <h3>{stock.symbol}</h3>
                                 <p>{stock.name}</p>
@@ -70,7 +91,11 @@ const AdvancedSearchPage = () => {
                     ))}
                 </div>
             </div>
-            <div className="chat-section">
+            <div 
+                className="chat-section" 
+                onDrop={handleDrop} 
+                onDragOver={handleDragOver}
+            >
                 <TextBox />
             </div>
 
