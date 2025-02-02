@@ -12,12 +12,18 @@ import (
 )
 
 type Server struct {
-	Router       *gin.Engine
-	GeminiClient *genai.Client
-	GeminiModel  *genai.GenerativeModel
-	nytKey       string
-	polygonKey   string
-	geminiKey    string
+	Router            *gin.Engine
+	GeminiClient      *genai.Client
+	GeminiModel       *genai.GenerativeModel
+	nytKey            string
+	polygonKeys       []string
+	currentPolygonKey int
+	geminiKey         string
+}
+
+func (server *Server) GetPolygonKey() string {
+	server.currentPolygonKey = (server.currentPolygonKey + 1) % len(server.polygonKeys)
+	return server.polygonKeys[server.currentPolygonKey]
 }
 
 func GetNewServer() (*Server, error) {
@@ -28,10 +34,32 @@ func GetNewServer() (*Server, error) {
 		return nil, errors.New("new york times api key not found")
 	}
 
-	polygonKey := os.Getenv("POLYGON_API_KEY")
-	if polygonKey == "" {
+	polygonKeys := []string{}
+	newPolygonKey := os.Getenv("POLYGON_API_KEY")
+	if newPolygonKey == "" {
 		return nil, errors.New("polygon api key not found")
 	}
+	polygonKeys = append(polygonKeys, newPolygonKey)
+	newPolygonKey = os.Getenv("POLYGON_API_KEY_1")
+	if newPolygonKey == "" {
+		return nil, errors.New("polygon api key 1 not found")
+	}
+	polygonKeys = append(polygonKeys, newPolygonKey)
+	newPolygonKey = os.Getenv("POLYGON_API_KEY_2")
+	if newPolygonKey == "" {
+		return nil, errors.New("polygon api key 2 not found")
+	}
+	polygonKeys = append(polygonKeys, newPolygonKey)
+	newPolygonKey = os.Getenv("POLYGON_API_KEY_3")
+	if newPolygonKey == "" {
+		return nil, errors.New("polygon api key 3 not found")
+	}
+	polygonKeys = append(polygonKeys, newPolygonKey)
+	newPolygonKey = os.Getenv("POLYGON_API_KEY_4")
+	if newPolygonKey == "" {
+		return nil, errors.New("polygon api key 4 not found")
+	}
+	polygonKeys = append(polygonKeys, newPolygonKey)
 
 	geminiKey := os.Getenv("GOOGLE_GEMINI_API_KEY")
 	if geminiKey == "" {
@@ -46,10 +74,11 @@ func GetNewServer() (*Server, error) {
 	router.Use(cors.New(config))
 
 	server := &Server{
-		Router:     router,
-		nytKey:     nytKey,
-		polygonKey: polygonKey,
-		geminiKey:  geminiKey,
+		Router:            router,
+		nytKey:            nytKey,
+		polygonKeys:       polygonKeys,
+		currentPolygonKey: 0,
+		geminiKey:         geminiKey,
 	}
 
 	server.InitializeModel()
@@ -93,7 +122,7 @@ func GetNewServer() (*Server, error) {
 				}
 
 				// Returns the holdings of a user
-				stocks.GET("/holdings", server.GetHoldings)
+				stocks.GET("/holdings/:symbol", server.GetHoldingInfo)
 			}
 
 			// Contains all routes relating to the AI chat
