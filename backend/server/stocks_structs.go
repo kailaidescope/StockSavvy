@@ -2,11 +2,13 @@ package server
 
 // Returned by /api/v1/stocks/tickers/:symbol
 type TickerInfo struct {
-	Symbol          string `json:"symbol"`
-	Name            string `json:"name"`
-	Industry        string `json:"industry"`
-	Locale          string `json:"locale"`
-	PrimaryExchange string `json:"primary_exchange"`
+	Symbol          string  `json:"symbol"`
+	Name            string  `json:"name"`
+	Industry        string  `json:"industry"`
+	Locale          string  `json:"locale"`
+	PrimaryExchange string  `json:"primary_exchange"`
+	OpenPrice       float64 `json:"open_price"`
+	ClosePrice      float64 `json:"close_price"`
 }
 
 // Returned by /api/v1/stocks/tickers/:symbol/history
@@ -23,13 +25,19 @@ type TickerNews struct {
 
 // Returned by /api/v1/stocks/tickers/:symbol/holdings
 type TickerHoldings struct {
-	Holdings []Holding `json:"holdings"`
+	Holdings []HoldingInfo `json:"holdings"`
 }
 
-type Holding struct {
+type HoldingInfo struct {
 	Symbol        string                   `json:"symbol"`
 	CurrentShares float32                  `json:"current_shares"`
 	History       []map[string]interface{} `json:"history"`
+	ShareInfo     TickerInfo               `json:"share_info"`
+}
+
+type Holding struct {
+	Symbol        string  `json:"symbol"`
+	CurrentShares float32 `json:"current_shares"`
 }
 
 // Dummy data

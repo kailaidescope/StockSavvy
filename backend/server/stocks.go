@@ -23,6 +23,16 @@ import (
 //   - TickerInfo: the ticker information struct
 func (server *Server) GetTickerInfo(c *gin.Context) {
 	symbol := c.Param("symbol")
+	info, err := server.getTickerInfo(c, symbol)
+	if err != nil {
+		return
+	}
+
+	c.JSON(http.StatusOK, info)
+	time.Sleep(THROTTLE_TIME * time.Second)
+}
+
+func (server *Server) getTickerInfo(c *gin.Context, symbol string) (TickerInfo, error) {
 	url := fmt.Sprintf("https://api.polygon.io/v3/reference/tickers?ticker=%s&active=true&limit=100&apiKey=%s", symbol, server.GetPolygonKey())
 	method := "GET"
 
@@ -34,13 +44,13 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 	if err != nil {
 		fmt.Println("Error generating request for Polygon.io", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return
+		return TickerInfo{}, errors.New(defaultErrMsg)
 	}
 	res, err := client.Do(req)
 	if err != nil {
 		fmt.Println("Error sending/receiving request to Polygon.io", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return
+		return TickerInfo{}, errors.New(defaultErrMsg)
 	}
 	defer res.Body.Close()
 
@@ -48,7 +58,7 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 	if err != nil {
 		fmt.Println("Error reading Polygon.io response", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return
+		return TickerInfo{}, errors.New(defaultErrMsg)
 	}
 	//fmt.Println(string(body))
 
@@ -57,7 +67,7 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 	if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
 		fmt.Println("Error unmarshalling response", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return
+		return TickerInfo{}, errors.New(defaultErrMsg)
 	}
 
 	// Convert to correct data types
@@ -69,7 +79,7 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 			fmt.Println("Error: results empty")
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return
+		return TickerInfo{}, errors.New(defaultErrMsg)
 	}
 
 	// Convert each element to map[string]interface{}
@@ -79,9 +89,78 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 		if !ok {
 			fmt.Println("Error: result element is not a map")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-			return
+			return TickerInfo{}, errors.New(defaultErrMsg)
 		}
 		convertedResults = append(convertedResults, resultMap)
+	}
+
+	url = fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/prev?adjusted=true&apiKey=%s", symbol, server.GetPolygonKey())
+
+	req, err = http.NewRequest(method, url, nil)
+
+	if err != nil {
+		fmt.Println("Error generating request for Polygon.io", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
+		return TickerInfo{}, errors.New(defaultErrMsg)
+	}
+	res, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error sending/receiving request to Polygon.io", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
+		return TickerInfo{}, errors.New(defaultErrMsg)
+	}
+	defer res.Body.Close()
+
+	body, err = io.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("Error reading Polygon.io response", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
+		return TickerInfo{}, errors.New(defaultErrMsg)
+	}
+	//fmt.Println(string(body))
+
+	// Unmarshall the unmarshalledBody
+	if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
+		fmt.Println("Error unmarshalling response", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
+		return TickerInfo{}, errors.New(defaultErrMsg)
+	}
+
+	// Convert to correct data types
+	results, ok = unmarshalledBody["results"].([]interface{})
+	if !ok || len(results) == 0 {
+		if !ok {
+			fmt.Println("Error: results not found")
+		} else {
+			fmt.Println("Error: results empty")
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
+		return TickerInfo{}, errors.New(defaultErrMsg)
+	}
+
+	// Convert each element to map[string]interface{}
+	var closeResults []map[string]interface{}
+	for _, result := range results {
+		resultMap, ok := result.(map[string]interface{})
+		if !ok {
+			fmt.Println("Error: result element is not a map")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
+			return TickerInfo{}, errors.New(defaultErrMsg)
+		}
+		closeResults = append(closeResults, resultMap)
+	}
+
+	openPrice, ok := closeResults[0]["o"].(float64)
+	if !ok {
+		fmt.Println("Error: open price not converted")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
+		return TickerInfo{}, errors.New(defaultErrMsg)
+	}
+	closePrice, ok := closeResults[0]["c"].(float64)
+	if !ok {
+		fmt.Println("Error: close price not converted")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
+		return TickerInfo{}, errors.New(defaultErrMsg)
 	}
 
 	// Use convertedResults for further processing
@@ -91,10 +170,10 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 		Industry:        "Not yet set",
 		Locale:          fmt.Sprintf("%v", convertedResults[0]["locale"]),
 		PrimaryExchange: fmt.Sprintf("%v", convertedResults[0]["primary_exchange"]),
+		OpenPrice:       openPrice,
+		ClosePrice:      closePrice,
 	}
-
-	c.JSON(http.StatusOK, info)
-	time.Sleep(THROTTLE_TIME * time.Second)
+	return info, nil
 }
 
 // GetTickerHistory returns the historical prices of a stock
@@ -349,7 +428,14 @@ func (server *Server) GetTickerNews(c *gin.Context) {
 // Output:
 //   - TickerHoldings: the ticker holdings struct
 func (server *Server) GetHoldings(c *gin.Context) {
-	holdings := getUniqueHoldings(testTickerPurchases)
+	holdingsInfo := getUniqueHoldings(testTickerPurchases)
+
+	// Convert to Holding struct
+	holdings := []Holding{}
+	for _, holding := range holdingsInfo {
+		holdings = append(holdings, Holding{Symbol: holding.Symbol, CurrentShares: holding.CurrentShares})
+	}
+
 	c.JSON(http.StatusOK, holdings)
 }
 
@@ -364,17 +450,21 @@ func (server *Server) GetHoldings(c *gin.Context) {
 //   - TickerHoldings: the ticker holdings struct
 func (server *Server) GetHoldingInfo(c *gin.Context) {
 	// Get the user's holdings
-	holdings := getUniqueHoldings(testTickerPurchases)
+	holdingsInfo := getUniqueHoldings(testTickerPurchases)
 
 	// Get symbol parameter
 	symbol := c.Param("symbol")
 
-	for i, holding := range holdings {
+	for i, holding := range holdingsInfo {
 		if holding.Symbol == symbol {
 			fmt.Println("Processing holding", i, holding)
+			holdingData, err := server.getTickerInfo(c, symbol)
+			if err != nil {
+				return
+			}
 			// Get the transactions for the holding
 			transactions := getTransactionsByHolding(testTickerPurchases, holding)
-			holdings[i].CurrentShares = transactions[len(transactions)-1].TotalShares
+			holdingsInfo[i].CurrentShares = transactions[len(transactions)-1].TotalShares
 
 			// Get the history for the holding
 			history, err := server.getTickerHistory(holding.Symbol)
@@ -403,6 +493,7 @@ func (server *Server) GetHoldingInfo(c *gin.Context) {
 			}
 
 			holding.History = history
+			holding.ShareInfo = holdingData
 			c.JSON(http.StatusOK, holding)
 			return
 		}
@@ -412,17 +503,17 @@ func (server *Server) GetHoldingInfo(c *gin.Context) {
 }
 
 // Gets the unique holdings from a list of transactions
-func getUniqueHoldings(transactions []StockTransaction) []Holding {
+func getUniqueHoldings(transactions []StockTransaction) []HoldingInfo {
 	sort.Slice(transactions, func(i, j int) bool {
 		return transactions[i].Date < transactions[j].Date
 	})
-	uniqueHoldings := []Holding{}
+	uniqueHoldings := []HoldingInfo{}
 	seen := map[string]bool{}
 
 	for _, transaction := range transactions {
 		if _, ok := seen[transaction.Symbol]; !ok {
 			seen[transaction.Symbol] = true
-			uniqueHoldings = append(uniqueHoldings, Holding{Symbol: transaction.Symbol, CurrentShares: transaction.TotalShares})
+			uniqueHoldings = append(uniqueHoldings, HoldingInfo{Symbol: transaction.Symbol, CurrentShares: transaction.TotalShares})
 		} else {
 			for i, holding := range uniqueHoldings {
 				if holding.Symbol == transaction.Symbol {
@@ -436,7 +527,7 @@ func getUniqueHoldings(transactions []StockTransaction) []Holding {
 }
 
 // Gets the transactions for a specific holding, and sort them by date
-func getTransactionsByHolding(transactions []StockTransaction, holding Holding) []StockTransaction {
+func getTransactionsByHolding(transactions []StockTransaction, holding HoldingInfo) []StockTransaction {
 	transactionsByHolding := []StockTransaction{}
 
 	for _, transaction := range transactions {
