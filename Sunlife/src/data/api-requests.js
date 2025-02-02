@@ -18,17 +18,27 @@ const axiosConfig = {
 export const getTickerHistory = async (symbol) => {
     try {
         const response = await axios.get(`${BASE_URL}/stocks/tickers/${symbol}/history`, axiosConfig);
-        const modifiedHistory = response.data.history.map(dataPoint => ({
-            ...dataPoint,
-            time: Math.floor(dataPoint.time / 1000)
-        }));
-        console.log(modifiedHistory)
-        return modifiedHistory;
+        return response.data.history;
     } catch (error) {
         console.error('Error fetching ticker history:', error);
         return []; // Fallback to fake data if API call fails
     }
 };
+
+/**
+ * Get historical data for a specific holding
+ * @param {string} symbol - The stock symbol
+ * @returns {Promise} - Returns historical value of your holding
+ */
+export const getHoldingHistory = async (symbol) => {
+    try {
+        const response = await axios.get(`${BASE_URL}/stocks/holdings/${symbol}`, axiosConfig);
+        return response.data.history;
+    } catch (error) {
+        console.error('Error fetching holding history:', error);
+        return []; // Fallback to fake data if API call fails
+    }
+}
 
 /**
  * Get news sentiment for a specific ticker

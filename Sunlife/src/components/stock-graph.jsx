@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, AreaSeries } from 'lightweight-charts';
-import { getTickerHistory } from '../data/api-requests';
+import { createChart, AreaSeries, LineSeries } from 'lightweight-charts';
+import { getHoldingHistory, getTickerHistory } from '../data/api-requests';
 
 const StockGraph = ({ symbol = 'AAPL' }) => {
     const chartContainerRef = useRef(null);
@@ -9,13 +9,15 @@ const StockGraph = ({ symbol = 'AAPL' }) => {
 
     const fetchData = async () => {
         setLoading(true);
+        //localStorage.clear();
         const cachedData = localStorage.getItem(`stockData-${symbol}`);
         if (cachedData) {
             setData(JSON.parse(cachedData));
             setLoading(false);
         } else {
             try {
-                const response = await getTickerHistory(symbol);
+                //const response = await getTickerHistory(symbol);
+                const response = await getHoldingHistory(symbol);
                 setData(response);
                 localStorage.setItem(`stockData-${symbol}`, JSON.stringify(response));
                 setLoading(false);
@@ -40,13 +42,25 @@ const StockGraph = ({ symbol = 'AAPL' }) => {
                 }
             });
 
-            const lineSeries = chart.addSeries(AreaSeries, {
+            const valueSeries = chart.addSeries(AreaSeries, {
                 color: '#1b4e5a',
                 lineWidth: 3
             });
 
-            lineSeries.setData(data);
+            valueSeries.setData(data);
             chart.timeScale().fitContent();
+
+            const stockAmtSeries = chart.addSeries(LineSeries, {
+                color: '#f5a623',
+                lineWidth: 2
+            });
+
+            const stockAmtData = data.map((d) => ({
+                time: d.time,
+                value: d.shares * 100
+            }));
+            stockAmtSeries.setData(stockAmtData);
+            
 
             // Handle resize
             const handleResize = () => {
