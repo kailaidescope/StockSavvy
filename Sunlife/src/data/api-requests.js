@@ -73,3 +73,45 @@ export const getHoldings = async () => {
         return [];
     }
 };
+
+/**
+ * Send a message to the chatbot and receive a response
+ * @param {string} message - The user's message
+ * @returns {Promise} - Returns the chatbot's response
+ */
+export const sendChat = async (newMessageText, messages) => {
+    let data;
+    // Try to encode chat message
+    try {
+        console.log(newMessageText, "\n",messages)
+        data = JSON.stringify({
+            "prompt": newMessageText,
+            "history": messages
+          });
+        console.log(data)
+    } catch (error) {
+        console.error('Error encoding chat message:', error);
+        return [];
+    }
+    
+    // Try to send request
+    try {
+        let chatRequestConfig = {
+            method: 'post',
+            maxBodyLength: Infinity,
+            url: `${BASE_URL}/chat`,
+            headers: { 
+              'Content-Type': 'application/json'
+            },
+            data : data
+          };
+        const response = await axios.request(chatRequestConfig)
+        let output = response.data;
+        let textOutput = output["ai-response"];
+        console.log(output, "\n", textOutput);
+        return textOutput;
+    } catch (error) {
+        console.error('Error sending chat:', error);
+        return "I'm sorry, I don't understand that.";
+    }
+}

@@ -3,6 +3,8 @@ import { FiSend, FiMic, FiCopy } from "react-icons/fi";
 import { format } from "date-fns";
 import { useSymbol } from "../contexts/symbol-context";
 import { useLocation } from "react-router-dom";
+import { sendChat } from "../data/api-requests";
+import ReactMarkdown from "react-markdown";
 
 const TextBox = () => {
   const [messages, setMessages] = useState([]);
@@ -38,10 +40,10 @@ const TextBox = () => {
     if (selectedSymbol === '' || isWaitingForResponse) return;
     const newMessage = {
       text: `Can you tell me why $${selectedSymbol} has been performing like this recently?`,
-      timestamp: new Date(),
+      timestamp: Math.floor(Date.now() / 1000),
       sender: "user"
     }
-    setMessages([...messages, newMessage]);
+    setMessages((prevMessages) => [...prevMessages, newMessage]);
     setSelectedSymbol('');
   }, [selectedSymbol])
 
@@ -58,12 +60,22 @@ const TextBox = () => {
     if (inputMessage.trim() !== "") {
       const newMessage = {
         text: inputMessage,
-        timestamp: new Date(),
+        timestamp: Math.floor(Date.now() / 1000),
         sender: "user"
       };
-      setMessages([...messages, newMessage]);
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
       setInputMessage("");
       setSelectedSymbols([]);
+      sendChat(newMessage.text, messages).then(response => {
+        const newMessage = {
+          text: response,
+          timestamp: Math.floor(Date.now() / 1000),
+          sender: "ai"
+        };
+        setMessages((prevMessages) => [...prevMessages, newMessage]);
+        setIsTyping(false);
+        setIsWaitingForResponse(false);
+      });
     }
   };
 
@@ -103,7 +115,7 @@ const TextBox = () => {
       <div className="messages">
         {messages.map((message, index) => (
           <div key={index} className={message.sender}>
-            <span>{message.text}</span>
+            <ReactMarkdown>{message.text}</ReactMarkdown> {/* Markdown Rendering */}
             <span className="timestamp">
               {format(message.timestamp, "p, MMMM dd")}
             </span>
@@ -153,6 +165,13 @@ const TextBox = () => {
       </div>
 
       <style jsx>{`
+        React-Markdown, p {
+          margin-bottom: 8px;
+          color: black;
+          margin-right: 10%;
+          font-size: 1.1em;
+        }
+      
         .chat-container {
           display: flex;
           flex-direction: column;
@@ -194,7 +213,7 @@ const TextBox = () => {
 
         .timestamp {
           display: block;
-          font-size: 0.8em;
+          font-size: 0.6em;
           color: #888;
           margin-top: 4px;
         }
