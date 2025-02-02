@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, AreaSeries, LineSeries } from 'lightweight-charts';
 import { getHoldingHistory, getTickerHistory } from '../data/api-requests';
 
-const StockGraph = ({ symbol = 'AAPL' }) => {
+const StockGraph = ({ symbol = 'AAPL' , isHolding = false}) => {
     const chartContainerRef = useRef(null);
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -11,13 +11,11 @@ const StockGraph = ({ symbol = 'AAPL' }) => {
         setLoading(true);
         //localStorage.clear();
         const cachedData = localStorage.getItem(`stockData-${symbol}`);
-        if (cachedData) {
-            setData(JSON.parse(cachedData));
-            setLoading(false);
-        } else {
+        if (isHolding) {
             try {
-                //const response = await getTickerHistory(symbol);
+                // const response = await getTickerHistory(symbol);
                 const response = await getHoldingHistory(symbol);
+                // const response = await getHoldings();
                 setData(response);
                 localStorage.setItem(`stockData-${symbol}`, JSON.stringify(response));
                 setLoading(false);
@@ -26,6 +24,10 @@ const StockGraph = ({ symbol = 'AAPL' }) => {
                 setLoading(false);
             }
         }
+        else if (cachedData) {
+            setData(JSON.parse(cachedData));
+            setLoading(false);
+        } 
     };
     useEffect(() => {
         fetchData();
