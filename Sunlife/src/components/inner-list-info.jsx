@@ -1,5 +1,5 @@
 import React from 'react';
-import TickerGraph from './ticker-graph';
+import StockGraph from './stock-graph';
 
 const InnerListInfo = ({ stock }) => {
   return (
@@ -8,7 +8,7 @@ const InnerListInfo = ({ stock }) => {
         <h3>Detailed Information</h3>
       </div>
       <div className="stock-graph">
-        <TickerGraph />
+        <StockGraph symbol={stock}/>
       </div>
       <style jsx>{`
         .inner-info {

@@ -18,10 +18,15 @@ const axiosConfig = {
 export const getTickerHistory = async (symbol) => {
     try {
         const response = await axios.get(`${BASE_URL}/stocks/tickers/${symbol}/history`, axiosConfig);
-        return JSON.stringify(response.data.history);
+        const modifiedHistory = response.data.history.map(dataPoint => ({
+            ...dataPoint,
+            time: Math.floor(dataPoint.time / 1000)
+        }));
+        console.log(modifiedHistory)
+        return modifiedHistory;
     } catch (error) {
         console.error('Error fetching ticker history:', error);
-        return fake_data; // Fallback to fake data if API call fails
+        return []; // Fallback to fake data if API call fails
     }
 };
 

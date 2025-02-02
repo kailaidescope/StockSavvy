@@ -5,18 +5,26 @@ import { getTickerHistory } from '../data/api-requests';
 const StockGraph = ({ symbol = 'AAPL' }) => {
     const chartContainerRef = useRef(null);
     const [data, setData] = useState([]);
-    
+    const [loading, setLoading] = useState(true);
+
     const fetchData = async () => {
-        try {
-            const response = await getTickerHistory(symbol);
-            const parsedData = JSON.parse(response);
-            setData(parsedData);
-            console.log('Fetched data:', parsedData);
-        } catch (error) {
-            console.error('Error:', error);
+        setLoading(true);
+        const cachedData = localStorage.getItem(`stockData-${symbol}`);
+        if (cachedData) {
+            setData(JSON.parse(cachedData));
+            setLoading(false);
+        } else {
+            try {
+                const response = await getTickerHistory(symbol);
+                setData(response);
+                localStorage.setItem(`stockData-${symbol}`, JSON.stringify(response));
+                setLoading(false);
+            } catch (error) {
+                console.error('Error:', error);
+                setLoading(false);
+            }
         }
     };
-
     useEffect(() => {
         fetchData();
     }, [symbol]);
@@ -57,10 +65,16 @@ const StockGraph = ({ symbol = 'AAPL' }) => {
     }, [data]);
 
     return (
-        <div>
-            <button className="refresh-button" onClick={fetchData}>Refresh</button>
-            <div 
-                ref={chartContainerRef} 
+        <div className="chart-wrapper">
+            {loading ? (
+                <div className="loading-container">
+                    <div className="loading-bar">
+                        <div className="loading-progress"></div>
+                    </div>
+                    <p>Loading {symbol} data...</p>
+                </div>
+            ) : (
+                <div ref={chartContainerRef} 
                 style={{ 
                     width: '100%', 
                     borderRadius: '15px', // Add rounded corners
@@ -69,8 +83,56 @@ const StockGraph = ({ symbol = 'AAPL' }) => {
                     backgroundColor: 'white', // Ensure background color is white
                     padding: '16px' // Add some padding
                 }} 
-            />
+            />)}
             <style jsx>{`
+             .chart-wrapper {
+                    position: relative;
+                    height: 250px;
+                    width: 100%;
+                    background: white;
+                    border-radius: 8px;
+                }
+                
+                .loading-container {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    text-align: center;
+                }
+                
+                .loading-bar {
+                    width: 200px;
+                    height: 4px;
+                    background: #f0f0f0;
+                    border-radius: 2px;
+                    overflow: hidden;
+                    margin-bottom: 12px;
+                }
+                
+                .loading-progress {
+                    width: 40%;
+                    height: 100%;
+                    background: #1b4e5a;
+                    border-radius: 2px;
+                    animation: loading 1.5s infinite ease-in-out;
+                }
+                
+                @keyframes loading {
+                    0% {
+                        transform: translateX(-250%);
+                    }
+                    100% {
+                        transform: translateX(250%);
+                    }
+                }
+                
+                p {
+                    color: #666;
+                    font-size: 14px;
+                    margin: 0;
+                    font-weight: 500;
+                }
                 .refresh-button {
                     background-color: var(--color-midnight-green);
                     color: white;

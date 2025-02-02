@@ -44,7 +44,7 @@ const TickerList = () => {
             </div>
           </div>
           {expandedStock === stock.symbol && (
-              <InnerListInfo/>
+              <InnerListInfo stock ={stock.symbol}/>
           )}
         </div>
       ))}
