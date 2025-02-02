@@ -1,0 +1,27 @@
+.emoji-scroll-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 200px; /* adjust as needed */
+    justify-content: space-between;
+    padding: 1rem;
+  }
+  
+  .emoji-range {
+    writing-mode: bt-lr; /* for vertical orientation in some browsers */
+    transform: rotate(180deg); /* flips direction so min is at top */
+    -webkit-appearance: slider-vertical; /* Chrome/Safari */
+    width: 20px;  /* narrower track */
+    height: 150px;
+    margin: 0;
+  }
+  
+  .emoji-top,
+  .emoji-bottom {
+    font-size: 1.5rem;
+    cursor: help;
+    position: relative;
+  }
+  .emoji-range:disabled {
+    pointer-events: none;
+  }
