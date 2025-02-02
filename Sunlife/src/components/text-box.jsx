@@ -167,7 +167,7 @@ const TextBox = () => {
           margin-bottom: 16px;
         }
 
-        .userMessage {
+        .user {
           background-color: var(--color-cornsilk);
           padding: 8px;
           border-radius: 8px;
@@ -177,7 +177,7 @@ const TextBox = () => {
           margin-left: 10%;
         }
 
-        .aiMessage {
+        .ai {
           background-color: white;
           padding: 8px;
           border-radius: 8px;
