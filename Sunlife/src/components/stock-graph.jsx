@@ -1,34 +1,25 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, AreaSeries } from 'lightweight-charts';
-import axios from 'axios';
-import fake_data from '../data/fake_investment_data'
+import { getTickerHistory } from '../data/api-requests';
 
-const StockGraph = () => {
+const StockGraph = ({ symbol = 'AAPL' }) => {
     const chartContainerRef = useRef(null);
     const [data, setData] = useState([]);
     
-    let config = {
-        method: 'get',
-        maxBodyLength: Infinity,
-        url: 'http://172.20.10.2:3000/api/v1/stocks/tickers/hi/history',
-        headers: { }
-      };
-      
-    const fetchData = () => {
-        axios.request(config)
-            .then(response => {
-                setData(response.data);
-                console.log(JSON.stringify(response.data));
-            })
-            .catch(error => {
-                setData(fake_data)
-                console.error('Error fetching data:', error);
-            });
+    const fetchData = async () => {
+        try {
+            const response = await getTickerHistory(symbol);
+            const parsedData = JSON.parse(response);
+            setData(parsedData);
+            console.log('Fetched data:', parsedData);
+        } catch (error) {
+            console.error('Error:', error);
+        }
     };
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [symbol]);
 
     useEffect(() => {
         if (chartContainerRef.current && data.length > 0) {
