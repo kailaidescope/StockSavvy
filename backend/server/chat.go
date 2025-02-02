@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/generative-ai-go/genai"
@@ -163,6 +164,118 @@ func (server *Server) compilePrompt(prompt string, history []map[string]interfac
 
 func (server *Server) getTickerNews(mentionedTickers []string) (string, error) {
 
+	for ticker := range mentionedTickers {
+		url := fmt.Sprintf("https://api.polygon.io/v2/reference/news?ticker=%s&order=desc&limit=350&sort=published_utc&apiKey=%s&published_utc.gte=2024-10-11T19:01:33Z", ticker, server.polygonKey)
+		method := "GET"
+
+		client := &http.Client{}
+		req, err := http.NewRequest(method, url, nil)
+
+		if err != nil {
+			return "", errors.New("error generating request")
+		}
+		res, err := client.Do(req)
+		if err != nil {
+			return "", errors.New("error sending request")
+		}
+		defer res.Body.Close()
+
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			return "", errors.New("error reading response body")
+		}
+		//fmt.Println(string(body))
+
+		// Unmarshall the unmarshalledBody
+		var unmarshalledBody map[string]interface{}
+		if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
+			return "", errors.New("error unmarshalling response")
+		}
+
+		// Convert to correct data types
+		results, ok := unmarshalledBody["results"].([]interface{})
+		if !ok {
+			return "", errors.New("error converting results")
+		}
+
+		// Get number of articles
+		numArticles, ok := unmarshalledBody["count"].(float64)
+		if !ok {
+			return "", errors.New("error converting count")
+		}
+		numArticlesInt := int(numArticles)
+
+		// Convert each element to map[string]interface{}
+		var articles []map[string]interface{}
+		for _, result := range results {
+			resultMap, ok := result.(map[string]interface{})
+			if !ok {
+				return "", errors.New("error converting result element")
+			}
+			articles = append(articles, resultMap)
+		}
+
+		// Calculate average sentiment
+
+		var sentiments []float64
+		for _, article := range articles {
+			if insights, exists := article["insights"]; exists {
+				insightsList, ok := insights.([]interface{})
+				if !ok {
+					return "", errors.New("error converting insights")
+				}
+
+				for _, singleTickerInsight := range insightsList {
+					convertedSingleTickerInsight, ok := singleTickerInsight.(map[string]interface{})
+					if !ok {
+						return "", errors.New("error converting singleTickerInsight")
+					}
+					if searchedTicker, exists := convertedSingleTickerInsight["ticker"]; exists {
+						if searchedTicker == ticker {
+							if sentiment, exists := convertedSingleTickerInsight["sentiment"]; exists {
+								sentimentString, ok := sentiment.(string)
+								if !ok {
+									return "", errors.New("error converting sentiment")
+								}
+
+								if sentimentString == "positive" {
+									sentiments = append(sentiments, 1)
+								} else if sentimentString == "negative" {
+									sentiments = append(sentiments, -1)
+								} else {
+									sentiments = append(sentiments, 0)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Calculate average sentiment
+		var sumSentiment float64
+		for _, sentiment := range sentiments {
+			sumSentiment += sentiment
+		}
+		avgSentiment := sumSentiment / float64(len(sentiments))
+
+		// Calculate standard deviation
+		var sumSquaredDifferences float64
+		for _, sentiment := range sentiments {
+			sumSquaredDifferences += (sentiment - avgSentiment) * (sentiment - avgSentiment)
+		}
+		stdDevSentiment := sumSquaredDifferences / float64(len(sentiments))
+
+		news := TickerNews{
+			AverageSentiment: float32(avgSentiment),
+			StdDevSentiment:  float32(stdDevSentiment),
+			NumArticles:      numArticlesInt,
+		}
+
+		fmt.Println(news)
+
+		time.Sleep(12 * time.Second)
+	}
 	return "", nil
 }
 
