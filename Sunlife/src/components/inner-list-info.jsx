@@ -1,16 +1,29 @@
 import React from 'react';
 import StockGraph from './stock-graph';
-
+import EmojiScrollbar from './scroll-bar-emoji'
 const InnerListInfo = ({ stock }) => {
   return (
     <div className="inner-info">
       <div className="info-header">
         <h3>Detailed Information</h3>
       </div>
-      <div className="stock-graph">
+      <div className="graph-and-scroll">
+
+   
         <StockGraph symbol={stock}/>
+      
+      <EmojiScrollbar titletop = {'Positive sentiment'} titlebottom = {'negative sentiment'}symbol={stock} emojiTop={'😁'} emojiBottom={'😡'}/>
+      <EmojiScrollbar  titletop = {'Hot topic'} titlebottom = {'Little coverage'}symbol={stock} emojiTop={'🔥'} emojiBottom={'❄'}/>
+
       </div>
+
       <style jsx>{`
+      .graph-and-scroll {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-between;
+        }
         .inner-info {
           padding: 16px;
           margin-top: 16px;
