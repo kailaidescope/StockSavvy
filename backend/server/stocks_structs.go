@@ -1,9 +1,5 @@
 package server
 
-import (
-	"fmt"
-)
-
 // Returned by /api/v1/stocks/tickers/:symbol
 type TickerInfo struct {
 	Symbol          string `json:"symbol"`
@@ -37,36 +33,32 @@ type Holding struct {
 
 // Dummy data
 
-func TestHoldings() {
-	fmt.Print("Test holdings: ")
-}
-
 var testHoldings = TickerHoldings{
 	Holdings: []Holding{
-		{Symbol: "AAPL", Shares: 1.0},
-		{Symbol: "GOOGL", Shares: 2.0},
-		{Symbol: "MSFT", Shares: 3.0},
-		{Symbol: "AMZN", Shares: 4.0},
-		{Symbol: "TSLA", Shares: 5.0},
-		{Symbol: "FB", Shares: 1.5},
-		{Symbol: "NFLX", Shares: 2.5},
-		{Symbol: "NVDA", Shares: 3.5},
-		{Symbol: "BABA", Shares: 4.5},
-		{Symbol: "V", Shares: 5.5},
-		{Symbol: "JPM", Shares: 1.0},
-		{Symbol: "JNJ", Shares: 2.0},
-		{Symbol: "WMT", Shares: 3.0},
-		{Symbol: "PG", Shares: 4.0},
-		{Symbol: "DIS", Shares: 5.0},
-		{Symbol: "MA", Shares: 1.5},
-		{Symbol: "HD", Shares: 2.5},
-		{Symbol: "VZ", Shares: 3.5},
-		{Symbol: "PYPL", Shares: 4.5},
-		{Symbol: "ADBE", Shares: 5.5},
+		{Symbol: "AAPL", Shares: 0.1},
+		{Symbol: "GOOGL", Shares: 0.2},
+		{Symbol: "MSFT", Shares: 0.3},
+		{Symbol: "AMZN", Shares: 0.4},
+		{Symbol: "TSLA", Shares: 0.5},
+		{Symbol: "META", Shares: 0.15},
+		{Symbol: "NFLX", Shares: 0.25},
+		{Symbol: "NVDA", Shares: 0.35},
+		{Symbol: "BABA", Shares: 0.45},
+		{Symbol: "V", Shares: 0.55},
+		{Symbol: "JPM", Shares: 0.1},
+		{Symbol: "JNJ", Shares: 0.2},
+		{Symbol: "WMT", Shares: 0.3},
+		{Symbol: "PG", Shares: 0.4},
+		{Symbol: "DIS", Shares: 0.5},
+		{Symbol: "MA", Shares: 0.15},
+		{Symbol: "HD", Shares: 0.25},
+		{Symbol: "VZ", Shares: 0.35},
+		{Symbol: "PYPL", Shares: 0.45},
+		{Symbol: "ADBE", Shares: 0.55},
 	},
 }
 
-var testTickerHistory = TickerHistory{
+/* var testTickerHistory = TickerHistory{
 	History: []map[string]interface{}{
 		{"time": 1612137600, "value": 100.0},
 		{"time": 1612224000, "value": 101.5},
@@ -120,3 +112,4 @@ var testTickerHistory = TickerHistory{
 		{"time": 1616371200, "value": 149.0},
 	},
 }
+*/

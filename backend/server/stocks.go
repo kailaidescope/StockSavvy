@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -47,7 +48,7 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
 		return
 	}
-	fmt.Println(string(body))
+	//fmt.Println(string(body))
 
 	// Unmarshall the unmarshalledBodyà
 	var unmarshalledBody map[string]interface{}
@@ -91,6 +92,7 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, info)
+	time.Sleep(12 * time.Second)
 }
 
 // GetTickerHistory returns the historical prices of a stock
@@ -131,7 +133,7 @@ func (server *Server) GetTickerHistory(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
 		return
 	}
-	fmt.Println(string(body))
+	//fmt.Println(string(body))
 
 	// Unmarshall the unmarshalledBody
 	var unmarshalledBody map[string]interface{}
@@ -195,6 +197,7 @@ func (server *Server) GetTickerHistory(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, history)
+	time.Sleep(12 * time.Second)
 }
 
 // GetTickerNews returns the news sentiment of a stock
@@ -235,7 +238,7 @@ func (server *Server) GetTickerNews(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
 		return
 	}
-	fmt.Println(string(body))
+	//fmt.Println(string(body))
 
 	// Unmarshall the unmarshalledBody
 	var unmarshalledBody map[string]interface{}
@@ -338,4 +341,15 @@ func (server *Server) GetTickerNews(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, news)
+	time.Sleep(12 * time.Second)
+}
+
+// GetTickerHoldings returns the holdings of a stock
+//
+// GET /api/v1/stocks/holdings
+//
+// Output:
+//   - TickerHoldings: the ticker holdings struct
+func (server *Server) GetHoldings(c *gin.Context) {
+	c.JSON(http.StatusOK, testHoldings)
 }
