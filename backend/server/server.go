@@ -96,80 +96,12 @@ func GetNewServer() (*Server, error) {
 				stocks.GET("/holdings", server.GetHoldings)
 			}
 
-			/* // Contains all routes relating to logging in and authenticating a user
-			auth := v1.Group("/auth")
+			// Contains all routes relating to the AI chat
+			chat := v1.Group("/chat")
 			{
-				// Takes login info and returns an auth token as a cookie
-				auth.POST("/login", server.LogIn)
-				// Takes profile info and adds it to the database if valid
-				auth.POST("/signup", server.SignUp)
-				//Deletes auth token on the client side
-				auth.POST("/logout", server.LogOut)
+				// Returns a response from the AI chat
+				chat.POST("", server.GenerateContent)
 			}
-
-			// All these routes require an auth token, i.e. you need to be logged in
-			// Contains routes relating to the current user
-			user := v1.Group("/user")
-			{
-				// Gets general information about you as a user
-				user.GET("", server.NotImplemented)
-				// Changes your user information
-				user.PUT("", server.NotImplemented)
-				// Deletes your account
-				user.DELETE("", server.NotImplemented)
-
-				// Gets your list of languages
-				user.GET("/languages", server.NotImplemented)
-
-				// Relates to users that follow you
-				followers := user.Group("/followers")
-				{
-					// Gets all users that follow you
-					followers.GET("", server.NotImplemented)
-					// Removes a current follower from your followers list
-					followers.DELETE("", server.NotImplemented)
-
-					// Relates to inbound follow requests
-					requests := followers.Group("/requests")
-					{
-						// Gets all active requests
-						requests.GET("", server.NotImplemented)
-						// Takes "resolution": "Accepted" or "Not accepted" and handles the request accordingly
-						requests.POST("", server.resolveFollowRequest)
-					}
-				}
-
-				following := user.Group("/following")
-				{
-					// Gets all the users that you follow
-					following.GET("", server.NotImplemented)
-					// Takes a user as a parameter and sends a follow request to that user
-					following.POST("", server.followUser)
-					// Takes a users as a parameter and removes them from your following list
-					following.DELETE("", server.unfollowUser)
-				}
-			}
-
-			// Contains routes related to searching information about another user
-			profiles := v1.Group("/profiles")
-			{
-				// searchProfile = the username of the user in question
-				searchProfile := profiles.Group("/:searchProfile")
-				{
-					// Gets general information about this user
-					searchProfile.GET("", server.GetProfile)
-
-					// Gets a list of the user's languages
-					searchProfile.GET("/languages", server.NotImplemented)
-					// Gets a list of the user's followers
-					searchProfile.GET("/followers", server.shouldAuthChecker, server.privacyValidator, server.getFollowers)
-					// Gets a list of people who follow this user
-					searchProfile.GET("/following", server.shouldAuthChecker, server.privacyValidator, server.getFollowing)
-				}
-			}
-
-			// Test function to see if auth works
-			v1.GET("/test", server.shouldAuthChecker, server.Testing) */
 		}
 	}
 
