@@ -50,7 +50,7 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 	}
 	//fmt.Println(string(body))
 
-	// Unmarshall the unmarshalledBodyà
+	// Unmarshall the unmarshalledBody
 	var unmarshalledBody map[string]interface{}
 	if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
 		fmt.Println("Error unmarshalling response", err)
