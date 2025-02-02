@@ -217,6 +217,7 @@ const AdvancedSearchPage = () => {
 
                 .stock-card:hover {
                     transform: translateY(-2px);
+                    animation: tilt-shaking 0.7s infinite;
                     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
                 }
 
@@ -251,6 +252,14 @@ const AdvancedSearchPage = () => {
 
                 .stock-change.negative {
                     color: #ef4444;
+                }
+
+                @keyframes tilt-shaking {
+                    0% { transform: rotate(0deg); }
+                    25% { transform: rotate(1deg); }
+                    50% { transform: rotate(0eg); }
+                    75% { transform: rotate(-1deg); }
+                    100% { transform: rotate(0deg); }
                 }
             `}</style>
         </div>
