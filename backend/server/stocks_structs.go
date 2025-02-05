@@ -1,7 +1,7 @@
 package server
 
 // Returned by /api/v1/stocks/tickers/:symbol
-type TickerInfo struct {
+type ServerTickerInfoResponse struct {
 	Symbol          string  `json:"symbol"`
 	Name            string  `json:"name"`
 	Industry        string  `json:"industry"`
@@ -32,7 +32,7 @@ type HoldingInfo struct {
 	Symbol        string                   `json:"symbol"`
 	CurrentShares float32                  `json:"current_shares"`
 	History       []map[string]interface{} `json:"history"`
-	ShareInfo     TickerInfo               `json:"share_info"`
+	ShareInfo     ServerTickerInfoResponse `json:"share_info"`
 }
 
 type Holding struct {
