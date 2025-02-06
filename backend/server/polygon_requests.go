@@ -52,7 +52,7 @@ func GenericPolygonGetRequest[T any](url string) (*T, error) {
 	if err != nil {
 		return nil, errors.Join(errors.New("error reading polygon.io response"), err)
 	}
-	//fmt.Println(string(body))
+	//log.Println("\nResponse body", string(body))
 
 	// Unmarshall the unmarshalledBody
 	var unmarshalledBody T
@@ -164,7 +164,7 @@ type PolygonGetTickerAggregateResponse struct {
 // Output:
 //   - *GetTickerAggregateResponse: the response from the Polygon API
 //   - error: any error that occurred
-func (server *Server) PolygonGetTickerLastHistory(symbol string) (*PolygonGetTickerAggregateResponse, error) {
+func (server *Server) PolygonGetTickerDailyClose(symbol string) (*PolygonGetTickerAggregateResponse, error) {
 	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/prev?apiKey=%s", symbol, server.GetPolygonKey())
 	response, err := GenericPolygonGetRequest[PolygonGetTickerAggregateResponse](url)
 	if err != nil {
@@ -175,6 +175,40 @@ func (server *Server) PolygonGetTickerLastHistory(symbol string) (*PolygonGetTic
 	}
 	if len(*response.Results) != 1 {
 		return nil, errors.New("too many results found")
+	}
+
+	return response, nil
+}
+
+type PolygonGetTickerHistoryResponse struct {
+	Ticker       *string `json:"ticker"`
+	QueryCount   *int    `json:"queryCount"`
+	ResultsCount *int    `json:"resultsCount"`
+	Adjusted     *bool   `json:"adjusted"`
+	Results      *[]struct {
+		V  *float64 `json:"v"`
+		Vw *float64 `json:"vw"`
+		O  *float64 `json:"o"`
+		C  *float64 `json:"c"`
+		H  *float64 `json:"h"`
+		L  *float64 `json:"l"`
+		T  *int64   `json:"t"`
+		N  *int     `json:"n"`
+	} `json:"results"`
+	Status    *string `json:"status"`
+	RequestID *string `json:"request_id"`
+	Count     *int    `json:"count"`
+}
+
+func (server *Server) PolygonGetTickerHistory(symbol string, startDate time.Time, endDate time.Time) (*PolygonGetTickerHistoryResponse, error) {
+	responseLengthLimit := 5000
+	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/day/%s/%s?adjusted=true&sort=asc&limit=%d&apiKey=%s", symbol, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), responseLengthLimit, server.GetPolygonKey())
+	response, err := GenericPolygonGetRequest[PolygonGetTickerHistoryResponse](url)
+	if err != nil {
+		return nil, errors.Join(errors.New("error getting info from polygon"), err)
+	}
+	if response.Results == nil || len(*response.Results) == 0 || response.Count == nil || *response.Count == 0 {
+		return nil, errors.New("no results found")
 	}
 
 	return response, nil

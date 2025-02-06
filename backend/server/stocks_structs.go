@@ -12,7 +12,7 @@ type ServerTickerInfoResponse struct {
 }
 
 // Returned by /api/v1/stocks/tickers/:symbol/history
-type TickerHistory struct {
+type ServerTickerHistoryResponse struct {
 	History []map[string]interface{} `json:"history"`
 }
 

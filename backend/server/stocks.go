@@ -46,7 +46,7 @@ func (server *Server) getTickerInfo(symbol string) (*ServerTickerInfoResponse, e
 		return nil, errors.Join(errors.New("error getting ticker info"), err)
 	}
 
-	tickerLastHistory, err := server.PolygonGetTickerLastHistory(symbol)
+	tickerLastHistory, err := server.PolygonGetTickerDailyClose(symbol)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting ticker aggregate"), err)
 	}
@@ -66,7 +66,7 @@ func (server *Server) getTickerInfo(symbol string) (*ServerTickerInfoResponse, e
 
 // GetTickerHistory returns the historical prices of a stock
 //
-// GET /api/v1/stocks/tickers/{symbol}/history
+// GET /api/v1/stocks/tickers/:symbol/history
 //
 // Input:
 //   - symbol: the ticker's symbol
@@ -75,94 +75,24 @@ func (server *Server) getTickerInfo(symbol string) (*ServerTickerInfoResponse, e
 //   - TickerHistory: the ticker history struct
 func (server *Server) GetTickerHistory(c *gin.Context) {
 	symbol := c.Param("symbol")
-	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/day/2024-06-30/2025-02-01?adjusted=true&sort=asc&limit=5000&apiKey=%s", symbol, server.GetPolygonKey())
-	method := "GET"
+	if symbol == "" {
+		log.Println("Error: symbol is required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "symbol is required"})
+		return
+	}
 
-	defaultErrMsg := "Error receiving ticker history"
-
-	client := &http.Client{}
-	req, err := http.NewRequest(method, url, nil)
-
+	historyMap, err := server.getTickerHistory(symbol)
 	if err != nil {
-		fmt.Println("Error generating request", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return
-	}
-	res, err := client.Do(req)
-	if err != nil {
-		fmt.Println("Error sending request", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return
-	}
-	defer res.Body.Close()
-
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("Error reading response body", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return
-	}
-	//fmt.Println(string(body))
-
-	// Unmarshall the unmarshalledBody
-	var unmarshalledBody map[string]interface{}
-	if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
-		fmt.Println("Error unmarshalling response", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
+		log.Println("Error getting ticker history", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting ticker history"})
 		return
 	}
 
-	// Check if results exist
-	if _, exists := unmarshalledBody["results"]; !exists {
-		fmt.Println("Error: results not found")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return
+	serverHistory := ServerTickerHistoryResponse{
+		History: historyMap,
 	}
 
-	// Convert to correct data types
-	results, ok := unmarshalledBody["results"].([]interface{})
-	if !ok {
-		fmt.Println("Error: results not converted")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return
-	}
-
-	// Convert each element to map[string]interface{}
-	var convertedResults []map[string]interface{}
-	for _, result := range results {
-		resultMap, ok := result.(map[string]interface{})
-		if !ok {
-			fmt.Println("Error: result element is not a map")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-			return
-		}
-		convertedResults = append(convertedResults, resultMap)
-	}
-
-	for _, value := range convertedResults {
-		if timestamp, exists := value["t"]; exists {
-			// Convert to seconds
-			value["time"] = timestamp.(float64) / 1000
-			delete(value, "t")
-		}
-		if close, exists := value["c"]; exists {
-			value["value"] = close
-			delete(value, "c")
-		}
-		delete(value, "v")
-		delete(value, "vw")
-		delete(value, "o")
-		delete(value, "h")
-		delete(value, "l")
-		delete(value, "n")
-	}
-
-	history := TickerHistory{
-		History: convertedResults,
-	}
-
-	c.JSON(http.StatusOK, history)
-	time.Sleep(THROTTLE_TIME * time.Second)
+	c.JSON(http.StatusOK, serverHistory)
 }
 
 // GetTickerNews returns the news sentiment of a stock
@@ -432,85 +362,20 @@ func getTransactionsByHolding(transactions []StockTransaction, holding HoldingIn
 }
 
 func (server *Server) getTickerHistory(symbol string) ([]map[string]interface{}, error) {
-	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/day/2024-06-30/2025-02-01?adjusted=true&sort=asc&limit=5000&apiKey=%s", symbol, server.GetPolygonKey())
-	method := "GET"
-
-	defaultErrMsg := "Error receiving ticker history"
-
-	client := &http.Client{}
-	req, err := http.NewRequest(method, url, nil)
-
+	//fmt.Println("Date: ", time.Now().AddDate(0, 0, -100).Format("2006-01-30"))
+	polygonHistory, err := server.PolygonGetTickerHistory(symbol, time.Now().AddDate(0, 0, -100), time.Now())
 	if err != nil {
-		fmt.Println("Error generating request", err)
-		return nil, err
-	}
-	res, err := client.Do(req)
-	if err != nil {
-		fmt.Println("Error sending request", err)
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("Error reading response body", err)
-		return nil, err
-	}
-	//fmt.Println(string(body))
-
-	// Unmarshall the unmarshalledBody
-	var unmarshalledBody map[string]interface{}
-	if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
-		fmt.Println("Error unmarshalling response", err)
-		return nil, err
+		return nil, errors.Join(errors.New("error getting ticker history"), err)
 	}
 
-	// Check if results exist
-	if _, exists := unmarshalledBody["results"]; !exists {
-		fmt.Println("Error: results not found")
-		return nil, fmt.Errorf(defaultErrMsg)
+	serverHistory := []map[string]interface{}{}
+
+	for _, polygonRecord := range *polygonHistory.Results {
+		newRecord := map[string]interface{}{}
+		newRecord["time"] = polygonRecord.T
+		newRecord["value"] = polygonRecord.V
+		serverHistory = append(serverHistory, newRecord)
 	}
 
-	// Convert to correct data types
-	results, ok := unmarshalledBody["results"].([]interface{})
-	if !ok {
-		fmt.Println("Error: results not converted")
-		return nil, fmt.Errorf(defaultErrMsg)
-	}
-
-	// Convert each element to map[string]interface{}
-	var convertedResults []map[string]interface{}
-	for _, result := range results {
-		resultMap, ok := result.(map[string]interface{})
-		if !ok {
-			fmt.Println("Error: result element is not a map")
-			return nil, errors.New("error converting result element")
-		}
-		convertedResults = append(convertedResults, resultMap)
-	}
-
-	for _, value := range convertedResults {
-		if timestamp, exists := value["t"]; exists {
-			// Convert to seconds
-			value["time"] = timestamp.(float64) / 1000
-			delete(value, "t")
-		}
-		if close, exists := value["c"]; exists {
-			value["value"] = close
-			delete(value, "c")
-		}
-		delete(value, "v")
-		delete(value, "vw")
-		delete(value, "o")
-		delete(value, "h")
-		delete(value, "l")
-		delete(value, "n")
-	}
-
-	history := TickerHistory{
-		History: convertedResults,
-	}
-
-	time.Sleep(THROTTLE_TIME * time.Second)
-	return history.History, nil
+	return serverHistory, nil
 }
