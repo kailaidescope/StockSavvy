@@ -52,17 +52,20 @@ func GenericPolygonGetRequest[T any](url string) (*T, error) {
 	if err != nil {
 		return nil, errors.Join(errors.New("error reading polygon.io response"), err)
 	}
+	//fmt.Println(string(body))
 
 	// Unmarshall the unmarshalledBody
 	var unmarshalledBody T
-	if err = json.Unmarshal(body, unmarshalledBody); err != nil {
+	if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
 		return nil, errors.Join(errors.New("error unmarshalling response"), err)
 	}
-	/* 	if unmarshalledBody == nil {
-		return nil, errors.New("unmarshalled response is nil")
-	} */
+
 	// TODO: Check if this function is necessary, or if it can be done in a better way. Maybe a less brute force way?
-	if anyFieldIsNil(unmarshalledBody) {
+	isNil, err := anyFieldIsNil(&unmarshalledBody)
+	if err != nil {
+		return nil, errors.Join(errors.New("error checking if unmarshalled response has nil fields"), err)
+	}
+	if isNil {
 		return nil, errors.New("unmarshalled response has nil fields")
 	}
 
@@ -70,14 +73,24 @@ func GenericPolygonGetRequest[T any](url string) (*T, error) {
 }
 
 // Checks if any field in a struct is nil
-func anyFieldIsNil(v interface{}) bool {
-	val := reflect.ValueOf(v).Elem()
+func anyFieldIsNil(v interface{}) (bool, error) {
+	val := reflect.ValueOf(v)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	} else {
+		return false, errors.New("value is not a pointer")
+	}
+	var nilFields []string
 	for i := 0; i < val.NumField(); i++ {
-		if val.Field(i).IsNil() {
-			return true
+		if val.Field(i).Kind() == reflect.Ptr && val.Field(i).IsNil() {
+			nilFields = append(nilFields, val.Type().Field(i).Name)
 		}
 	}
-	return false
+	if len(nilFields) > 0 {
+		fmt.Printf("Nil fields: %v\n", nilFields)
+		return true, nil
+	}
+	return false, nil
 }
 
 type PolygonGetTickerResponse struct {
@@ -118,6 +131,7 @@ func (server *Server) PolygonGetTicker(symbol string) (*PolygonGetTickerResponse
 	if response.Results == nil || len(*response.Results) == 0 || response.Count == nil || *response.Count == 0 {
 		return nil, errors.New("no results found")
 	}
+
 	return response, nil
 }
 
@@ -127,19 +141,19 @@ type PolygonGetTickerAggregateResponse struct {
 	ResultsCount *int    `json:"resultsCount"`
 	Adjusted     *bool   `json:"adjusted"`
 	Results      *[]struct {
-		V  *int     `json:"v"`
-		Vw *float64 `json:"vw"`
-		O  *float64 `json:"o"`
-		C  *float64 `json:"c"`
-		H  *float64 `json:"h"`
-		L  *float64 `json:"l"`
-		T  *int64   `json:"t"`
-		N  *int     `json:"n"`
+		Ticker *string  `json:"T"`
+		V      *float64 `json:"v"`
+		Vw     *float64 `json:"vw"`
+		O      *float64 `json:"o"`
+		C      *float64 `json:"c"`
+		H      *float64 `json:"h"`
+		L      *float64 `json:"l"`
+		Time   *int64   `json:"t"`
+		N      *int     `json:"n"`
 	} `json:"results"`
 	Status    *string `json:"status"`
 	RequestID *string `json:"request_id"`
 	Count     *int    `json:"count"`
-	NextURL   *string `json:"next_url"`
 }
 
 // PolygonGetTickerAggregate returns the ticker aggregate information for a given symbol for the last day
@@ -151,7 +165,7 @@ type PolygonGetTickerAggregateResponse struct {
 //   - *GetTickerAggregateResponse: the response from the Polygon API
 //   - error: any error that occurred
 func (server *Server) PolygonGetTickerLastHistory(symbol string) (*PolygonGetTickerAggregateResponse, error) {
-	url := fmt.Sprintf("https://api.polygon.io/v3/reference/tickers?ticker=%s&active=true&limit=100&apiKey=%s", symbol, server.GetPolygonKey())
+	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/prev?apiKey=%s", symbol, server.GetPolygonKey())
 	response, err := GenericPolygonGetRequest[PolygonGetTickerAggregateResponse](url)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting info from polygon"), err)
