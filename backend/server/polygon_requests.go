@@ -1,5 +1,14 @@
 package server
 
+// This file contains the functions that make requests to the Polygon API
+// https://polygon.io/docs/stocks/getting-started
+//
+// All calls to Polygon should be directed through these functions.
+// If a new call is needed, it shoud be added to this file.
+
+// For making JSONs
+// https://mholt.github.io/json-to-go/
+
 import (
 	"encoding/json"
 	"errors"
@@ -73,7 +82,14 @@ type PolygonGetTickerResponse struct {
 func (server *Server) PolygonGetTicker(symbol string) (*PolygonGetTickerResponse, error) {
 	url := fmt.Sprintf("https://api.polygon.io/v3/reference/tickers?ticker=%s&active=true&limit=100&apiKey=%s", symbol, server.GetPolygonKey())
 
-	return GenericPolygonRequest[PolygonGetTickerResponse](url)
+	response, err := GenericPolygonRequest[PolygonGetTickerResponse](url)
+	if err != nil {
+		return nil, errors.Join(errors.New("error getting info from polygon"), err)
+	}
+	if response.Results == nil || len(response.Results) == 0 || response.Count == nil || *response.Count == 0 {
+		return nil, errors.New("no results found")
+	}
+	return response, nil
 }
 
 type PolygonGetTickerAggregateResponse struct {
