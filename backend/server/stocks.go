@@ -30,168 +30,38 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 		return
 	}
 
-	tickerSummary, err := server.PolygonGetTicker(symbol)
-	if err != nil || tickerSummary == nil {
+	info, err := server.getTickerInfo(symbol)
+	if err != nil {
 		log.Println("Error getting ticker info", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting ticker info"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting ticker info"})
 		return
-	}
-	if tickerSummary
-
-	tickerLastHistory, err := server.PolygonGetTickerLastHistory(symbol)
-	if err != nil || tickerLastHistory == nil {
-		log.Println("Error getting ticker aggregate", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting ticker aggregate"})
-		return
-	}
-
-	info := ServerTickerInfoResponse{
-		Symbol:          *tickerSummary.Results[0].Name,
-		Name:            fmt.Sprintf("%v", convertedResults[0]["name"]),
-		Industry:        "Not yet set",
-		Locale:          fmt.Sprintf("%v", convertedResults[0]["locale"]),
-		PrimaryExchange: fmt.Sprintf("%v", convertedResults[0]["primary_exchange"]),
-		OpenPrice:       openPrice,
-		ClosePrice:      closePrice,
 	}
 
 	c.JSON(http.StatusOK, info)
 }
 
-func (server *Server) getTickerInfo(c *gin.Context, symbol string) (ServerTickerInfoResponse, error) {
-	url := fmt.Sprintf("https://api.polygon.io/v3/reference/tickers?ticker=%s&active=true&limit=100&apiKey=%s", symbol, server.GetPolygonKey())
-	method := "GET"
-
-	defaultErrMsg := "Error receiving ticker info"
-
-	client := &http.Client{}
-	req, err := http.NewRequest(method, url, nil)
-
+func (server *Server) getTickerInfo(symbol string) (*ServerTickerInfoResponse, error) {
+	tickerSummary, err := server.PolygonGetTicker(symbol)
 	if err != nil {
-		fmt.Println("Error generating request for Polygon.io", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
+		return nil, errors.Join(errors.New("error getting ticker info"), err)
 	}
-	res, err := client.Do(req)
+
+	tickerLastHistory, err := server.PolygonGetTickerLastHistory(symbol)
 	if err != nil {
-		fmt.Println("Error sending/receiving request to Polygon.io", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
-	}
-	defer res.Body.Close()
-
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("Error reading Polygon.io response", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
-	}
-	//fmt.Println(string(body))
-
-	// Unmarshall the unmarshalledBody
-	var unmarshalledBody map[string]interface{}
-	if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
-		fmt.Println("Error unmarshalling response", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
+		return nil, errors.Join(errors.New("error getting ticker aggregate"), err)
 	}
 
-	// Convert to correct data types
-	results, ok := unmarshalledBody["results"].([]interface{})
-	if !ok || len(results) == 0 {
-		if !ok {
-			fmt.Println("Error: results not found")
-		} else {
-			fmt.Println("Error: results empty")
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
+	info := ServerTickerInfoResponse{
+		Symbol:          *(*(*tickerSummary).Results)[0].Ticker,
+		Name:            *(*(*tickerSummary).Results)[0].Name,
+		Industry:        "Not yet set",
+		Locale:          *(*(*tickerSummary).Results)[0].Locale,
+		PrimaryExchange: *(*(*tickerSummary).Results)[0].PrimaryExchange,
+		OpenPrice:       *(*(*tickerLastHistory).Results)[0].O,
+		ClosePrice:      *(*(*tickerLastHistory).Results)[0].C,
 	}
 
-	// Convert each element to map[string]interface{}
-	var convertedResults []map[string]interface{}
-	for _, result := range results {
-		resultMap, ok := result.(map[string]interface{})
-		if !ok {
-			fmt.Println("Error: result element is not a map")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-			return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
-		}
-		convertedResults = append(convertedResults, resultMap)
-	}
-
-	url = fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/prev?adjusted=true&apiKey=%s", symbol, server.GetPolygonKey())
-
-	req, err = http.NewRequest(method, url, nil)
-
-	if err != nil {
-		fmt.Println("Error generating request for Polygon.io", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
-	}
-	res, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error sending/receiving request to Polygon.io", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
-	}
-	defer res.Body.Close()
-
-	body, err = io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("Error reading Polygon.io response", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
-	}
-	//fmt.Println(string(body))
-
-	// Unmarshall the unmarshalledBody
-	if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
-		fmt.Println("Error unmarshalling response", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
-	}
-
-	// Convert to correct data types
-	results, ok = unmarshalledBody["results"].([]interface{})
-	if !ok || len(results) == 0 {
-		if !ok {
-			fmt.Println("Error: results not found")
-		} else {
-			fmt.Println("Error: results empty")
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
-	}
-
-	// Convert each element to map[string]interface{}
-	var closeResults []map[string]interface{}
-	for _, result := range results {
-		resultMap, ok := result.(map[string]interface{})
-		if !ok {
-			fmt.Println("Error: result element is not a map")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-			return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
-		}
-		closeResults = append(closeResults, resultMap)
-	}
-
-	openPrice, ok := closeResults[0]["o"].(float64)
-	if !ok {
-		fmt.Println("Error: open price not converted")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
-	}
-	closePrice, ok := closeResults[0]["c"].(float64)
-	if !ok {
-		fmt.Println("Error: close price not converted")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultErrMsg})
-		return ServerTickerInfoResponse{}, errors.New(defaultErrMsg)
-	}
-
-	// Use convertedResults for further processing
-
-	return info, nil
+	return &info, nil
 }
 
 // GetTickerHistory returns the historical prices of a stock
@@ -476,7 +346,7 @@ func (server *Server) GetHoldingInfo(c *gin.Context) {
 	for i, holding := range holdingsInfo {
 		if holding.Symbol == symbol {
 			fmt.Println("Processing holding", i, holding)
-			holdingData, err := server.getTickerInfo(c, symbol)
+			holdingData, err := server.getTickerInfo(symbol)
 			if err != nil {
 				return
 			}
@@ -511,7 +381,7 @@ func (server *Server) GetHoldingInfo(c *gin.Context) {
 			}
 
 			holding.History = history
-			holding.ShareInfo = holdingData
+			holding.ShareInfo = *holdingData
 			c.JSON(http.StatusOK, holding)
 			return
 		}
