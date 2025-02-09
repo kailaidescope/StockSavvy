@@ -95,6 +95,33 @@ func (server *Server) GetTickerHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, serverHistory)
 }
 
+// getTickerHistory returns the historical prices of a stock
+//
+// Input:
+//   - symbol: the ticker's symbol
+//
+// Output:
+//   - []map[string]interface{}: the ticker history struct
+//   - error: any error that occurred
+func (server *Server) getTickerHistory(symbol string) ([]map[string]interface{}, error) {
+	//fmt.Println("Date: ", time.Now().AddDate(0, 0, -100).Format("2006-01-30"))
+	polygonHistory, err := server.PolygonGetTickerHistory(symbol, time.Now().AddDate(0, 0, -100), time.Now())
+	if err != nil {
+		return nil, errors.Join(errors.New("error getting ticker history"), err)
+	}
+
+	serverHistory := []map[string]interface{}{}
+
+	for _, polygonRecord := range *polygonHistory.Results {
+		newRecord := map[string]interface{}{}
+		newRecord["time"] = polygonRecord.T
+		newRecord["value"] = polygonRecord.V
+		serverHistory = append(serverHistory, newRecord)
+	}
+
+	return serverHistory, nil
+}
+
 // GetTickerNews returns the news sentiment of a stock
 //
 // GET /api/v1/stocks/tickers/{symbol}/news
@@ -359,23 +386,4 @@ func getTransactionsByHolding(transactions []StockTransaction, holding HoldingIn
 	})
 
 	return transactionsByHolding
-}
-
-func (server *Server) getTickerHistory(symbol string) ([]map[string]interface{}, error) {
-	//fmt.Println("Date: ", time.Now().AddDate(0, 0, -100).Format("2006-01-30"))
-	polygonHistory, err := server.PolygonGetTickerHistory(symbol, time.Now().AddDate(0, 0, -100), time.Now())
-	if err != nil {
-		return nil, errors.Join(errors.New("error getting ticker history"), err)
-	}
-
-	serverHistory := []map[string]interface{}{}
-
-	for _, polygonRecord := range *polygonHistory.Results {
-		newRecord := map[string]interface{}{}
-		newRecord["time"] = polygonRecord.T
-		newRecord["value"] = polygonRecord.V
-		serverHistory = append(serverHistory, newRecord)
-	}
-
-	return serverHistory, nil
 }

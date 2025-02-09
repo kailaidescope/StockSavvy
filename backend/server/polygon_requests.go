@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"reflect"
 	"time"
@@ -48,28 +47,22 @@ func GenericPolygonGetRequest[T any](url string) (*T, error) {
 	}
 	defer res.Body.Close()
 
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, errors.Join(errors.New("error reading polygon.io response"), err)
-	}
-	//log.Println("\nResponse body", string(body))
-
-	// Unmarshall the unmarshalledBody
-	var unmarshalledBody T
-	if err = json.Unmarshal(body, &unmarshalledBody); err != nil {
-		return nil, errors.Join(errors.New("error unmarshalling response"), err)
+	// Unmarshall the decodedBody
+	var decodedBody T
+	if err = json.NewDecoder(res.Body).Decode(&decodedBody); err != nil {
+		return nil, errors.Join(errors.New("error decoding response"), err)
 	}
 
 	// TODO: Check if this function is necessary, or if it can be done in a better way. Maybe a less brute force way?
-	isNil, err := anyFieldIsNil(&unmarshalledBody)
+	isNil, err := anyFieldIsNil(&decodedBody)
 	if err != nil {
-		return nil, errors.Join(errors.New("error checking if unmarshalled response has nil fields"), err)
+		return nil, errors.Join(errors.New("error checking if decoded response has nil fields"), err)
 	}
 	if isNil {
-		return nil, errors.New("unmarshalled response has nil fields")
+		return nil, errors.New("decoded response has nil fields")
 	}
 
-	return &unmarshalledBody, nil
+	return &decodedBody, nil
 }
 
 // Checks if any field in a struct is nil
