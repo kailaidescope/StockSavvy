@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"reflect"
 	"time"
@@ -59,7 +60,8 @@ func GenericPolygonGetRequest[T any](url string) (*T, error) {
 		return nil, errors.Join(errors.New("error checking if decoded response has nil fields"), err)
 	}
 	if isNil {
-		return nil, errors.New("decoded response has nil fields")
+		log.Println("Response has some nil fields")
+		//return nil, errors.New("decoded response has nil fields")
 	}
 
 	return &decodedBody, nil
@@ -80,7 +82,7 @@ func anyFieldIsNil(v interface{}) (bool, error) {
 		}
 	}
 	if len(nilFields) > 0 {
-		fmt.Printf("Nil fields: %v\n", nilFields)
+		log.Printf("Nil fields: %v\n", nilFields)
 		return true, nil
 	}
 	return false, nil
@@ -134,15 +136,16 @@ type PolygonGetTickerAggregateResponse struct {
 	ResultsCount *int    `json:"resultsCount"`
 	Adjusted     *bool   `json:"adjusted"`
 	Results      *[]struct {
-		Ticker *string  `json:"T"`
-		V      *float64 `json:"v"`
-		Vw     *float64 `json:"vw"`
-		O      *float64 `json:"o"`
-		C      *float64 `json:"c"`
-		H      *float64 `json:"h"`
-		L      *float64 `json:"l"`
-		Time   *int64   `json:"t"`
-		N      *int     `json:"n"`
+		Ticker       *string  `json:"T"`
+		Volume       *float64 `json:"v"`
+		VWAP         *float64 `json:"vw"`
+		Open         *float64 `json:"o"`
+		Close        *float64 `json:"c"`
+		High         *float64 `json:"h"`
+		Low          *float64 `json:"l"`
+		Timestamp    *int64   `json:"t"`
+		Transactions *int     `json:"n"`
+		OTC          *bool    `json:"otc"` // This is omitted if false
 	} `json:"results"`
 	Status    *string `json:"status"`
 	RequestID *string `json:"request_id"`
@@ -179,24 +182,108 @@ type PolygonGetTickerHistoryResponse struct {
 	ResultsCount *int    `json:"resultsCount"`
 	Adjusted     *bool   `json:"adjusted"`
 	Results      *[]struct {
-		V  *float64 `json:"v"`
-		Vw *float64 `json:"vw"`
-		O  *float64 `json:"o"`
-		C  *float64 `json:"c"`
-		H  *float64 `json:"h"`
-		L  *float64 `json:"l"`
-		T  *int64   `json:"t"`
-		N  *int     `json:"n"`
+		Volume       *float64 `json:"v"`
+		VWAP         *float64 `json:"vw"`
+		Open         *float64 `json:"o"`
+		Close        *float64 `json:"c"`
+		High         *float64 `json:"h"`
+		Low          *float64 `json:"l"`
+		Timestamp    *int64   `json:"t"`
+		Transactions *int     `json:"n"`
+		OTC          *bool    `json:"otc"`
 	} `json:"results"`
 	Status    *string `json:"status"`
 	RequestID *string `json:"request_id"`
 	Count     *int    `json:"count"`
 }
 
-func (server *Server) PolygonGetTickerHistory(symbol string, startDate time.Time, endDate time.Time) (*PolygonGetTickerHistoryResponse, error) {
+// PolygonGetTickerHistory returns the ticker's historical price data within the selected time range
+//
+// Input:
+//   - symbol: the symbol of the stock
+//   - startDate: the earliest date to retrieve data from
+//   - endDate: the lastest date to retrieve data from
+//   - limit: the limit of days to retrieve, set <= 0 for maximum
+//
+// Output:
+//   - *GetTickerAggregateResponse: the response from the Polygon API
+//   - error: any error that occurred
+func (server *Server) PolygonGetTickerHistory(symbol string, startDate time.Time, endDate time.Time, limit int) (*PolygonGetTickerHistoryResponse, error) {
+	if startDate.After(endDate) {
+		return nil, errors.New("start date cannot be after end date")
+	}
+
+	// Set default limit
 	responseLengthLimit := 5000
+	if limit > 0 {
+		responseLengthLimit = limit
+	}
 	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/day/%s/%s?adjusted=true&sort=asc&limit=%d&apiKey=%s", symbol, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), responseLengthLimit, server.GetPolygonKey())
 	response, err := GenericPolygonGetRequest[PolygonGetTickerHistoryResponse](url)
+	if err != nil {
+		return nil, errors.Join(errors.New("error getting info from polygon"), err)
+	}
+	if response.Results == nil || len(*response.Results) == 0 || response.Count == nil || *response.Count == 0 {
+		return nil, errors.New("no results found")
+	}
+
+	return response, nil
+}
+
+type PolygonGetTickerNews struct {
+	Results *[]struct {
+		ID        *string `json:"id"`
+		Publisher *struct {
+			Name        *string `json:"name"`
+			HomepageURL *string `json:"homepage_url"`
+			LogoURL     *string `json:"logo_url"`
+			FaviconURL  *string `json:"favicon_url"`
+		} `json:"publisher"`
+		Title        *string    `json:"title"`
+		Author       *string    `json:"author"`
+		PublishedUTC *time.Time `json:"published_utc"`
+		ArticleURL   *string    `json:"article_url"`
+		Tickers      *[]string  `json:"tickers"`
+		ImageURL     *string    `json:"image_url"`
+		Description  *string    `json:"description"`
+		Keywords     *[]string  `json:"keywords"`
+		Insights     *[]struct {
+			Ticker             *string `json:"ticker"`
+			Sentiment          *string `json:"sentiment"`
+			SentimentReasoning *string `json:"sentiment_reasoning"`
+		} `json:"insights"`
+	} `json:"results"`
+	Status    *string `json:"status"`
+	RequestID *string `json:"request_id"`
+	Count     *int    `json:"count"`
+	NextURL   *string `json:"next_url"`
+}
+
+// PolygonGetTickerNews returns the ticker's historical price data within the selected time range
+//
+// Input:
+//   - symbol: the symbol of the stock
+//   - startDate: the earliest date to retrieve data from
+//   - endDate: the lastest date to retrieve data from
+//   - limit: the limit of days to retrieve, set <= 0 for maximum
+//
+// Output:
+//   - *GetTickerAggregateResponse: the response from the Polygon API
+//   - error: any error that occurred
+func (server *Server) PolygonGetTickerNews(symbol string, startDate time.Time, endDate time.Time, limit int) (*PolygonGetTickerNews, error) {
+	if startDate.After(endDate) {
+		return nil, errors.New("start date cannot be after end date")
+	}
+
+	// Set default limit
+	responseLengthLimit := 300
+	if limit > 0 {
+		responseLengthLimit = limit
+	}
+	order := "desc"
+	sort := "published_utc"
+	url := fmt.Sprintf("https://api.polygon.io/v2/reference/news?ticker=%s&order=%s&limit=%d&sort=%s&apiKey=%s&published_utc.gte=%s&published_utc.lte=%s", symbol, order, responseLengthLimit, sort, server.GetPolygonKey(), startDate.Format("2006-01-02T15:04:05Z"), endDate.Format("2006-01-02T15:04:05Z"))
+	response, err := GenericPolygonGetRequest[PolygonGetTickerNews](url)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting info from polygon"), err)
 	}

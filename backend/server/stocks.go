@@ -57,8 +57,8 @@ func (server *Server) getTickerInfo(symbol string) (*ServerTickerInfoResponse, e
 		Industry:        "Not yet set",
 		Locale:          *(*(*tickerSummary).Results)[0].Locale,
 		PrimaryExchange: *(*(*tickerSummary).Results)[0].PrimaryExchange,
-		OpenPrice:       *(*(*tickerLastHistory).Results)[0].O,
-		ClosePrice:      *(*(*tickerLastHistory).Results)[0].C,
+		OpenPrice:       *(*(*tickerLastHistory).Results)[0].Open,
+		ClosePrice:      *(*(*tickerLastHistory).Results)[0].Close,
 	}
 
 	return &info, nil
@@ -105,7 +105,7 @@ func (server *Server) GetTickerHistory(c *gin.Context) {
 //   - error: any error that occurred
 func (server *Server) getTickerHistory(symbol string) ([]map[string]interface{}, error) {
 	//fmt.Println("Date: ", time.Now().AddDate(0, 0, -100).Format("2006-01-30"))
-	polygonHistory, err := server.PolygonGetTickerHistory(symbol, time.Now().AddDate(0, 0, -100), time.Now())
+	polygonHistory, err := server.PolygonGetTickerHistory(symbol, time.Now().AddDate(0, 0, -100), time.Now(), -1)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting ticker history"), err)
 	}
@@ -114,8 +114,8 @@ func (server *Server) getTickerHistory(symbol string) ([]map[string]interface{},
 
 	for _, polygonRecord := range *polygonHistory.Results {
 		newRecord := map[string]interface{}{}
-		newRecord["time"] = polygonRecord.T
-		newRecord["value"] = polygonRecord.V
+		newRecord["time"] = polygonRecord.Timestamp
+		newRecord["value"] = polygonRecord.Volume
 		serverHistory = append(serverHistory, newRecord)
 	}
 
