@@ -11,7 +11,7 @@ func main() {
 		log.Fatal("Could not get the server object: ", err)
 	}
 
-	err = gin_server.Router.Run(":3000")
+	err = gin_server.Router.Run(":3333")
 	if err != nil {
 		log.Fatal("Could not start the server: ", err)
 	}
