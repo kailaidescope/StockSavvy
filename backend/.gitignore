@@ -21,18 +21,14 @@
 go.work
 go.work.sum
 
-# env file
+# env files
 **.env
-
-# Ignore cloned project
-signalcaptchahelper
-
-# Ignore signal api data
-signal_storage
-signal_storage/data/accounts.json
 
 # Ignore local data
 backend/data
 
 # Ignore DS_Store
 .DS_Store
+
+# Ignore docker storage
+docker
