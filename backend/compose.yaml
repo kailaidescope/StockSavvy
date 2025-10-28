@@ -7,13 +7,46 @@
 # You can add other services your application may depend on here, such as a
 # database or a cache. For examples, see the Awesome Compose repository:
 # https://github.com/docker/awesome-compose
+name: stock-savvy
+
 services:
-  server:
+  stock-savvy-server-v1:
+    container_name: stock-savvy-server-v1
+    restart: unless-stopped
     build:
       context: .
       target: final
     ports:
       - 3333:3333
+    env_file:
+        - ./mongo.env
+        - ./.env
+    networks:
+      - backend
+  stocks-mongodb-v1:
+    image: mongo:8.0
+    container_name: stocks-mongodb-v1
+    restart: unless-stopped
+    env_file:
+      - ./mongo.env
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo-data:/data/db
+      - ./docker/mongo/initdb.d:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+volumes:
+  mongo-data:
+
+networks:
+  backend:
 
 # The commented out section below is an example of how to define a PostgreSQL
 # database that your application can use. `depends_on` tells Docker Compose to
