@@ -2,8 +2,10 @@ package server
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"os"
+	"path"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -30,8 +32,14 @@ func (server *Server) GetPolygonKey() string {
 }
 
 func GetNewServer() (*Server, error) {
-	// Load env vars
-	godotenv.Load()
+	// Load env vars, if not in Docker container
+	log.Println("Checking if Docker is running...")
+	if dockerRunning := os.Getenv("DOCKER_RUNNING"); dockerRunning != "true" {
+		if err := LoadEnvironment(); err != nil {
+			return nil, errors.Join(errors.New("couldn't load environment"), err)
+		}
+	}
+
 	nytKey := os.Getenv("NYT_API_KEY")
 	if nytKey == "" {
 		return nil, errors.New("new york times api key not found")
@@ -156,4 +164,36 @@ func GetNewServer() (*Server, error) {
 
 func (server *Server) NotImplemented(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"status": "This resource is not yet implemented, but will be in the future"})
+}
+
+// LoadEnvironment gets environment variables from a .env file in the project directory and allows us to use them
+// Falls through if in Docker environment, to protect against infinite loops
+func LoadEnvironment() error {
+	log.Println("Double-checking if Docker is running...")
+	// Safeguard to prevent infinite loops
+	if dockerRunning := os.Getenv("DOCKER_RUNNING"); dockerRunning == "true" {
+		return nil
+	}
+
+	log.Println("Loading environment variables...")
+	// Find root directory
+	for {
+		workingDirectoryPath, err := os.Getwd()
+		if err != nil {
+			return errors.Join(errors.New("could not get current working directory for environment file loading"), err)
+		}
+		_, workingDirectoryName := path.Split(workingDirectoryPath)
+		log.Println("Current directory:", workingDirectoryName)
+		if workingDirectoryName == "backend" {
+			break
+		}
+		os.Chdir("..")
+	}
+	err := godotenv.Load(".env", "mongo.env")
+	if err != nil {
+		return errors.Join(errors.New("could not load environment variables"), err)
+	}
+	log.Println("Environment variables loaded.")
+
+	return nil
 }
