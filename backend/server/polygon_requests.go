@@ -16,6 +16,7 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -292,4 +293,167 @@ func (server *Server) PolygonGetTickerNews(symbol string, startDate time.Time, e
 	}
 
 	return response, nil
+}
+
+// PolygonResponseToString converts any of the Polygon response structs in this file into a readable string using reflection.
+// It attempts to pretty-print pointer fields, slices, structs and time.Time values.
+func PolygonResponseToString(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	var b strings.Builder
+
+	var formatValue func(reflect.Value, int)
+	indentStr := func(level int) string { return strings.Repeat("  ", level) }
+
+	formatValue = func(rv reflect.Value, indent int) {
+		if !rv.IsValid() {
+			b.WriteString(indentStr(indent) + "<invalid>\n")
+			return
+		}
+		// Deref pointers
+		for rv.Kind() == reflect.Ptr {
+			if rv.IsNil() {
+				b.WriteString(indentStr(indent) + "<nil>\n")
+				return
+			}
+			rv = rv.Elem()
+		}
+
+		switch rv.Kind() {
+		case reflect.Struct:
+			typ := rv.Type()
+			// Special-case time.Time
+			if typ.PkgPath() == "time" && typ.Name() == "Time" {
+				t := rv.Interface().(time.Time)
+				b.WriteString(indentStr(indent) + t.Format(time.RFC3339) + "\n")
+				return
+			}
+			for i := 0; i < rv.NumField(); i++ {
+				field := rv.Field(i)
+				fieldType := typ.Field(i)
+				name := fieldType.Name
+				// Print field name
+				b.WriteString(indentStr(indent) + name + ": ")
+				if !field.IsValid() {
+					b.WriteString("<invalid>\n")
+					continue
+				}
+				// If pointer -> handle inside
+				if field.Kind() == reflect.Ptr {
+					if field.IsNil() {
+						b.WriteString("<nil>\n")
+						continue
+					}
+					elem := field.Elem()
+					// time.Time pointer
+					if elem.Kind() == reflect.Struct && elem.Type().PkgPath() == "time" && elem.Type().Name() == "Time" {
+						t := elem.Interface().(time.Time)
+						b.WriteString(t.Format(time.RFC3339) + "\n")
+						continue
+					}
+					switch elem.Kind() {
+					case reflect.String:
+						b.WriteString(fmt.Sprintf("%s\n", elem.String()))
+					case reflect.Bool:
+						b.WriteString(fmt.Sprintf("%t\n", elem.Bool()))
+					case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+						b.WriteString(fmt.Sprintf("%d\n", elem.Int()))
+					case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+						b.WriteString(fmt.Sprintf("%d\n", elem.Uint()))
+					case reflect.Float32, reflect.Float64:
+						b.WriteString(fmt.Sprintf("%v\n", elem.Float()))
+					case reflect.Slice, reflect.Array:
+						if elem.Len() == 0 {
+							b.WriteString("[]\n")
+							continue
+						}
+						b.WriteString("\n")
+						for j := 0; j < elem.Len(); j++ {
+							b.WriteString(indentStr(indent+1) + "- ")
+							// print element (may be basic or struct)
+							// capture current length to check if nested added newline
+							startLen := b.Len()
+							formatValue(elem.Index(j), indent+2)
+							// if nested printed with its own newline, avoid double newlines; ensure at least one newline
+							if b.Len() == startLen {
+								b.WriteString("\n")
+							}
+						}
+					case reflect.Struct:
+						b.WriteString("\n")
+						formatValue(elem, indent+1)
+					default:
+						// Fallback to fmt
+						b.WriteString(fmt.Sprintf("%v\n", elem.Interface()))
+					}
+				} else {
+					// Non-pointer field kinds
+					switch field.Kind() {
+					case reflect.Struct:
+						// time.Time?
+						if field.Type().PkgPath() == "time" && field.Type().Name() == "Time" {
+							t := field.Interface().(time.Time)
+							b.WriteString(t.Format(time.RFC3339) + "\n")
+						} else {
+							b.WriteString("\n")
+							formatValue(field, indent+1)
+						}
+					case reflect.Slice, reflect.Array:
+						if field.Len() == 0 {
+							b.WriteString("[]\n")
+							continue
+						}
+						b.WriteString("\n")
+						for j := 0; j < field.Len(); j++ {
+							b.WriteString(indentStr(indent+1) + "- ")
+							startLen := b.Len()
+							formatValue(field.Index(j), indent+2)
+							if b.Len() == startLen {
+								b.WriteString("\n")
+							}
+						}
+					case reflect.String:
+						b.WriteString(fmt.Sprintf("%s\n", field.String()))
+					case reflect.Bool:
+						b.WriteString(fmt.Sprintf("%t\n", field.Bool()))
+					case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+						b.WriteString(fmt.Sprintf("%d\n", field.Int()))
+					case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+						b.WriteString(fmt.Sprintf("%d\n", field.Uint()))
+					case reflect.Float32, reflect.Float64:
+						b.WriteString(fmt.Sprintf("%v\n", field.Float()))
+					case reflect.Interface:
+						if field.IsNil() {
+							b.WriteString("<nil>\n")
+						} else {
+							b.WriteString("\n")
+							formatValue(field.Elem(), indent+1)
+						}
+					default:
+						b.WriteString(fmt.Sprintf("%v\n", field.Interface()))
+					}
+				}
+			}
+		case reflect.Slice, reflect.Array:
+			if rv.Len() == 0 {
+				b.WriteString(indentStr(indent) + "[]\n")
+				return
+			}
+			for i := 0; i < rv.Len(); i++ {
+				b.WriteString(indentStr(indent) + "- ")
+				startLen := b.Len()
+				formatValue(rv.Index(i), indent+1)
+				if b.Len() == startLen {
+					b.WriteString("\n")
+				}
+			}
+		default:
+			// Basic types
+			b.WriteString(indentStr(indent) + fmt.Sprintf("%v\n", rv.Interface()))
+		}
+	}
+
+	formatValue(reflect.ValueOf(v), 0)
+	return b.String()
 }

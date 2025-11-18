@@ -100,7 +100,7 @@ func TestPolygonGetTickerDailyClose(t *testing.T) {
 	if first.Close == nil && first.Open == nil {
 		t.Fatalf("expected price fields to be present")
 	}
-	log.Println("Got response from PolygonGetTickerDailyClose:", resp)
+	log.Println("Got response from PolygonGetTickerDailyClose:", PolygonResponseToString(resp))
 }
 
 func TestPolygonGetTickerHistory(t *testing.T) {
@@ -125,7 +125,7 @@ func TestPolygonGetTickerHistory(t *testing.T) {
 			t.Fatalf("Result #%d in PolygonGetTickerHistory is from %s, which is not within range (%s - %s)", i, time.UnixMilli(*result.Timestamp).Format("2006-01-02T15:04:05Z"), start.Format("2006-01-02T15:04:05Z"), end.Format("2006-01-02T15:04:05Z"))
 		}
 	}
-	log.Println("Got response from PolygonGetTickerHistory:", resp)
+	log.Println("Got response from PolygonGetTickerHistory:", PolygonResponseToString(resp))
 }
 
 func TestPolygonGetTickerNews(t *testing.T) {
@@ -150,5 +150,30 @@ func TestPolygonGetTickerNews(t *testing.T) {
 			t.Fatalf("Result #%d in PolygonGetTickerNews was published on %s, which is not within range (%s - %s)", i, result.PublishedUTC.Format("2006-01-02T15:04:05Z"), start.Format("2006-01-02T15:04:05Z"), end.Format("2006-01-02T15:04:05Z"))
 		}
 	}
-	log.Println("Got response from PolygonGetTickerNews:", resp)
+	log.Println("Got response from PolygonGetTickerNews:", PolygonResponseToString(resp))
+}
+
+func TestPolygonGetTickerNews_SingleDay(t *testing.T) {
+	if testServer == nil {
+		t.Skip("test server not initialized")
+	}
+
+	end := time.Now().UTC().AddDate(0, 0, -5)
+	start := end.AddDate(0, 0, -1)
+	resp, err := testServer.PolygonGetTickerNews(testTicker, start, end, 10)
+	if err != nil {
+		t.Fatalf("PolygonGetTickerNews error: %v", err)
+	}
+	if resp == nil {
+		t.Fatalf("expected non-nil response")
+	}
+	if resp.Results == nil || len(*resp.Results) == 0 {
+		t.Fatalf("expected news results")
+	}
+	for i, result := range *resp.Results {
+		if !result.PublishedUTC.After(start) || !result.PublishedUTC.Before(end) {
+			t.Fatalf("Result #%d in PolygonGetTickerNews was published on %s, which is not within range (%s - %s)", i, result.PublishedUTC.Format("2006-01-02T15:04:05Z"), start.Format("2006-01-02T15:04:05Z"), end.Format("2006-01-02T15:04:05Z"))
+		}
+	}
+	log.Println("Got response from PolygonGetTickerNews:", PolygonResponseToString(resp))
 }
