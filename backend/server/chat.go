@@ -175,7 +175,7 @@ func (server *Server) getTickerNews(mentionedTickers []string) (string, error) {
 		"In addition, some recent article headlines and descriptions relating to the companies are included.\n\n"
 
 	for _, ticker := range mentionedTickers {
-		url := fmt.Sprintf("https://api.polygon.io/v2/reference/news?ticker=%s&order=desc&limit=350&sort=published_utc&apiKey=%s&published_utc.gte=2024-10-11T19:01:33Z", ticker, server.GetPolygonKey())
+		url := fmt.Sprintf("https://api.polygon.io/v2/reference/news?ticker=%s&order=desc&limit=350&sort=published_utc&apiKey=%s&published_utc.gte=2024-10-11T19:01:33Z", ticker, server.polygonConnection.GetPolygonKey())
 		method := "GET"
 
 		client := &http.Client{}
@@ -341,7 +341,7 @@ func (server *Server) getTickerNews(mentionedTickers []string) (string, error) {
 
 func (server *Server) getTickerAggregate(ticker string) (string, error) {
 	time.Sleep(THROTTLE_TIME * time.Second)
-	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/month/2025-01-01/2025-02-01?adjusted=true&sort=asc&apiKey=%s", ticker, server.GetPolygonKey())
+	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/month/2025-01-01/2025-02-01?adjusted=true&sort=asc&apiKey=%s", ticker, server.polygonConnection.GetPolygonKey())
 	method := "GET"
 
 	client := &http.Client{}

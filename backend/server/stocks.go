@@ -41,12 +41,12 @@ func (server *Server) GetTickerInfo(c *gin.Context) {
 }
 
 func (server *Server) getTickerInfo(symbol string) (*ServerTickerInfoResponse, error) {
-	tickerSummary, err := server.PolygonGetTicker(symbol)
+	tickerSummary, err := server.polygonConnection.PolygonGetTicker(symbol)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting ticker info"), err)
 	}
 
-	tickerLastHistory, err := server.PolygonGetTickerDailyClose(symbol)
+	tickerLastHistory, err := server.polygonConnection.PolygonGetTickerDailyClose(symbol)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting ticker aggregate"), err)
 	}
@@ -105,7 +105,7 @@ func (server *Server) GetTickerHistory(c *gin.Context) {
 //   - error: any error that occurred
 func (server *Server) getTickerHistory(symbol string) ([]map[string]interface{}, error) {
 	//fmt.Println("Date: ", time.Now().AddDate(0, 0, -100).Format("2006-01-30"))
-	polygonHistory, err := server.PolygonGetTickerHistory(symbol, time.Now().AddDate(0, 0, -100), time.Now(), -1)
+	polygonHistory, err := server.polygonConnection.PolygonGetTickerHistory(symbol, time.Now().AddDate(0, 0, -100), time.Now(), -1)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting ticker history"), err)
 	}
@@ -133,7 +133,7 @@ func (server *Server) getTickerHistory(symbol string) ([]map[string]interface{},
 //   - TickerNews: the ticker news struct
 func (server *Server) GetTickerNews(c *gin.Context) {
 	symbol := c.Param("symbol")
-	url := fmt.Sprintf("https://api.polygon.io/v2/reference/news?ticker=%s&order=desc&limit=350&sort=published_utc&apiKey=%s&published_utc.gte=2024-10-11T19:01:33Z", symbol, server.GetPolygonKey())
+	url := fmt.Sprintf("https://api.polygon.io/v2/reference/news?ticker=%s&order=desc&limit=350&sort=published_utc&apiKey=%s&published_utc.gte=2024-10-11T19:01:33Z", symbol, server.polygonConnection.GetPolygonKey())
 	method := "GET"
 
 	defaultErrMsg := "Error receiving ticker news"

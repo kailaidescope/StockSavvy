@@ -1,8 +1,11 @@
-package server
+package polygon
 
 import (
+	"errors"
+	"financial-helper/environment"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -10,14 +13,22 @@ import (
 
 var testTicker string = "AMD"
 
-var testServer *Server
+var polygonConnection *PolygonConnection
 var testTeardown func()
 var testInitErr error
 
 func TestMain(m *testing.M) {
 	// Initialize server once for all tests
-	testServer, testTeardown, testInitErr = func() (*Server, func(), error) {
-		server, err := GetNewServer()
+	polygonConnection, testTeardown, testInitErr = func() (*PolygonConnection, func(), error) {
+		if err := environment.LoadEnvironment(); err != nil {
+			return nil, nil, errors.Join(errors.New("failed to load environment for testing"), err)
+		}
+		vars, polygonKeys, err := environment.LoadVars()
+		if err != nil {
+			return nil, nil, errors.Join(errors.New("failed to load env variables"), err)
+		}
+		throttleTimeInt, _ := strconv.Atoi(vars["THROTTLE_TIME"])
+		server := GetPolygonConnection(polygonKeys, time.Duration(throttleTimeInt)*time.Second)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -41,28 +52,12 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func SetupAndTeardown(tb *testing.TB, runServer bool) (*Server, func(), error) {
-	server, err := GetNewServer()
-
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if runServer {
-		go server.Router.Run(":3333")
-	}
-
-	return server, func() {
-		log.Println("Tearing down test environment...")
-	}, err
-}
-
 func TestPolygonGetTicker(t *testing.T) {
-	if testServer == nil {
+	if polygonConnection == nil {
 		t.Skip("test server not initialized")
 	}
 
-	resp, err := testServer.PolygonGetTicker(testTicker)
+	resp, err := polygonConnection.PolygonGetTicker(testTicker)
 	if err != nil {
 		t.Fatalf("PolygonGetTicker error: %v", err)
 	}
@@ -82,11 +77,11 @@ func TestPolygonGetTicker(t *testing.T) {
 }
 
 func TestPolygonGetTickerDailyClose(t *testing.T) {
-	if testServer == nil {
+	if polygonConnection == nil {
 		t.Skip("test server not initialized")
 	}
 
-	resp, err := testServer.PolygonGetTickerDailyClose(testTicker)
+	resp, err := polygonConnection.PolygonGetTickerDailyClose(testTicker)
 	if err != nil {
 		t.Fatalf("PolygonGetTickerDailyClose error: %v", err)
 	}
@@ -104,13 +99,13 @@ func TestPolygonGetTickerDailyClose(t *testing.T) {
 }
 
 func TestPolygonGetTickerHistory(t *testing.T) {
-	if testServer == nil {
+	if polygonConnection == nil {
 		t.Skip("test server not initialized")
 	}
 
 	end := time.Now().UTC().AddDate(0, 0, -3)
 	start := end.AddDate(0, 0, -7)
-	resp, err := testServer.PolygonGetTickerHistory(testTicker, start, end, 5)
+	resp, err := polygonConnection.PolygonGetTickerHistory(testTicker, start, end, 5)
 	if err != nil {
 		t.Fatalf("PolygonGetTickerHistory error: %v", err)
 	}
@@ -129,13 +124,13 @@ func TestPolygonGetTickerHistory(t *testing.T) {
 }
 
 func TestPolygonGetTickerNews(t *testing.T) {
-	if testServer == nil {
+	if polygonConnection == nil {
 		t.Skip("test server not initialized")
 	}
 
 	end := time.Now().UTC().AddDate(0, 0, -5)
 	start := end.AddDate(0, 0, -10)
-	resp, err := testServer.PolygonGetTickerNews(testTicker, start, end, 10)
+	resp, err := polygonConnection.PolygonGetTickerNews(testTicker, start, end, 10)
 	if err != nil {
 		t.Fatalf("PolygonGetTickerNews error: %v", err)
 	}
@@ -154,13 +149,13 @@ func TestPolygonGetTickerNews(t *testing.T) {
 }
 
 func TestPolygonGetTickerNews_SingleDay(t *testing.T) {
-	if testServer == nil {
+	if polygonConnection == nil {
 		t.Skip("test server not initialized")
 	}
 
 	end := time.Now().UTC().AddDate(0, 0, -5)
 	start := end.AddDate(0, 0, -1)
-	resp, err := testServer.PolygonGetTickerNews(testTicker, start, end, 10)
+	resp, err := polygonConnection.PolygonGetTickerNews(testTicker, start, end, 10)
 	if err != nil {
 		t.Fatalf("PolygonGetTickerNews error: %v", err)
 	}

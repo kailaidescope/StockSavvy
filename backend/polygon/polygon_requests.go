@@ -1,4 +1,4 @@
-package server
+package polygon
 
 // This file contains the functions that make requests to the Polygon API
 // https://polygon.io/docs/stocks/getting-started
@@ -19,6 +19,27 @@ import (
 	"strings"
 	"time"
 )
+
+type PolygonConnection struct {
+	polygonKeys       []string
+	currentPolygonKey int
+	throttleTime      time.Duration
+}
+
+func GetPolygonConnection(polygonKeys []string, throttleTime time.Duration) *PolygonConnection {
+	return &PolygonConnection{
+		polygonKeys:       polygonKeys,
+		currentPolygonKey: 0,
+		throttleTime:      throttleTime,
+	}
+}
+
+func (polygonConnection *PolygonConnection) GetPolygonKey() string {
+	polygonConnection.currentPolygonKey = (polygonConnection.currentPolygonKey + 1) % len(polygonConnection.polygonKeys)
+	return polygonConnection.polygonKeys[polygonConnection.currentPolygonKey]
+}
+
+var THROTTLE_TIME time.Duration = 2
 
 // Sends a customizable GET request to Polygon.io's API
 //
@@ -117,8 +138,8 @@ type PolygonGetTickerResponse struct {
 // Output:
 //   - *GetTickerResponse: the response from the Polygon API
 //   - error: any error that occurred
-func (server *Server) PolygonGetTicker(symbol string) (*PolygonGetTickerResponse, error) {
-	url := fmt.Sprintf("https://api.polygon.io/v3/reference/tickers?ticker=%s&active=true&limit=100&apiKey=%s", symbol, server.GetPolygonKey())
+func (polygonConnection *PolygonConnection) PolygonGetTicker(symbol string) (*PolygonGetTickerResponse, error) {
+	url := fmt.Sprintf("https://api.polygon.io/v3/reference/tickers?ticker=%s&active=true&limit=100&apiKey=%s", symbol, polygonConnection.GetPolygonKey())
 
 	response, err := GenericPolygonGetRequest[PolygonGetTickerResponse](url)
 	if err != nil {
@@ -161,8 +182,8 @@ type PolygonGetTickerAggregateResponse struct {
 // Output:
 //   - *GetTickerAggregateResponse: the response from the Polygon API
 //   - error: any error that occurred
-func (server *Server) PolygonGetTickerDailyClose(symbol string) (*PolygonGetTickerAggregateResponse, error) {
-	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/prev?apiKey=%s", symbol, server.GetPolygonKey())
+func (polygonConnection *PolygonConnection) PolygonGetTickerDailyClose(symbol string) (*PolygonGetTickerAggregateResponse, error) {
+	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/prev?apiKey=%s", symbol, polygonConnection.GetPolygonKey())
 	response, err := GenericPolygonGetRequest[PolygonGetTickerAggregateResponse](url)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting info from polygon"), err)
@@ -209,7 +230,7 @@ type PolygonGetTickerHistoryResponse struct {
 // Output:
 //   - *GetTickerAggregateResponse: the response from the Polygon API
 //   - error: any error that occurred
-func (server *Server) PolygonGetTickerHistory(symbol string, startDate time.Time, endDate time.Time, limit int) (*PolygonGetTickerHistoryResponse, error) {
+func (polygonConnection *PolygonConnection) PolygonGetTickerHistory(symbol string, startDate time.Time, endDate time.Time, limit int) (*PolygonGetTickerHistoryResponse, error) {
 	if startDate.After(endDate) {
 		return nil, errors.New("start date cannot be after end date")
 	}
@@ -219,7 +240,7 @@ func (server *Server) PolygonGetTickerHistory(symbol string, startDate time.Time
 	if limit > 0 {
 		responseLengthLimit = limit
 	}
-	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/day/%s/%s?adjusted=true&sort=asc&limit=%d&apiKey=%s", symbol, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), responseLengthLimit, server.GetPolygonKey())
+	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/day/%s/%s?adjusted=true&sort=asc&limit=%d&apiKey=%s", symbol, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), responseLengthLimit, polygonConnection.GetPolygonKey())
 	response, err := GenericPolygonGetRequest[PolygonGetTickerHistoryResponse](url)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting info from polygon"), err)
@@ -271,7 +292,7 @@ type PolygonGetTickerNews struct {
 // Output:
 //   - *GetTickerAggregateResponse: the response from the Polygon API
 //   - error: any error that occurred
-func (server *Server) PolygonGetTickerNews(symbol string, startDate time.Time, endDate time.Time, limit int) (*PolygonGetTickerNews, error) {
+func (polygonConnection *PolygonConnection) PolygonGetTickerNews(symbol string, startDate time.Time, endDate time.Time, limit int) (*PolygonGetTickerNews, error) {
 	if startDate.After(endDate) {
 		return nil, errors.New("start date cannot be after end date")
 	}
@@ -283,7 +304,7 @@ func (server *Server) PolygonGetTickerNews(symbol string, startDate time.Time, e
 	}
 	order := "desc"
 	sort := "published_utc"
-	url := fmt.Sprintf("https://api.polygon.io/v2/reference/news?ticker=%s&order=%s&limit=%d&sort=%s&apiKey=%s&published_utc.gte=%s&published_utc.lte=%s", symbol, order, responseLengthLimit, sort, server.GetPolygonKey(), startDate.Format("2006-01-02T15:04:05Z"), endDate.Format("2006-01-02T15:04:05Z"))
+	url := fmt.Sprintf("https://api.polygon.io/v2/reference/news?ticker=%s&order=%s&limit=%d&sort=%s&apiKey=%s&published_utc.gte=%s&published_utc.lte=%s", symbol, order, responseLengthLimit, sort, polygonConnection.GetPolygonKey(), startDate.Format("2006-01-02T15:04:05Z"), endDate.Format("2006-01-02T15:04:05Z"))
 	response, err := GenericPolygonGetRequest[PolygonGetTickerNews](url)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting info from polygon"), err)
