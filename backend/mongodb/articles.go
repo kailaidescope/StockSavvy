@@ -1,10 +1,48 @@
 package mongodb
 
 import (
+	"context"
 	"financial-helper/polygon"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+// InsertArticles inserts the provided articles into the "ticker_news" collection of dbName.
+// It returns the number of successfully inserted documents and an error (if any).
+func InsertArticles(client *mongo.Client, dbName string, articles []Article) (int, error) {
+	if client == nil {
+		return 0, mongo.ErrClientDisconnected
+	}
+	if len(articles) == 0 {
+		return 0, nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	coll := client.Database(dbName).Collection("ticker_news")
+
+	docs := make([]interface{}, len(articles))
+	for i := range articles {
+		docs[i] = articles[i]
+	}
+
+	// unordered insert so one duplicate doesn't stop the rest
+	opts := options.InsertMany().SetOrdered(false)
+	res, err := coll.InsertMany(ctx, docs, opts)
+	if err != nil {
+		// if some docs inserted before error, return the count and the error
+		if res != nil {
+			return len(res.InsertedIDs), err
+		}
+		return 0, err
+	}
+
+	return len(res.InsertedIDs), nil
+}
 
 type ArticlePublisher struct {
 	Name        string `bson:"name,omitempty"`

@@ -58,6 +58,14 @@ func LoadVars() (map[string]string, []string, error) {
 		return nil, nil, errors.Join(errors.New("failed to convert mongo port to int"), err)
 	}
 
+	mongoHost := "localhost"
+	if dockerRunning := os.Getenv("DOCKER_RUNNING"); dockerRunning == "true" {
+		mongoHost = os.Getenv("MONGO_HOST")
+		if mongoHost == "" {
+			return nil, nil, errors.New("mongo host not found")
+		}
+	}
+
 	throttleTimeString := os.Getenv("THROTTLE_TIME")
 	if throttleTimeString == "" {
 		return nil, nil, errors.New("throttle time not found")
@@ -74,6 +82,7 @@ func LoadVars() (map[string]string, []string, error) {
 		"MONGO_INITDB_ROOT_USERNAME": mongoUsername,
 		"MONGO_INITDB_ROOT_PASSWORD": mongoPassword,
 		"MONGO_PORT":                 mongoPortString,
+		"MONGO_HOST":                 mongoHost,
 		"THROTTLE_TIME":              throttleTimeString,
 	}
 

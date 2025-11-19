@@ -45,7 +45,7 @@ func GetNewServer() (*Server, error) {
 
 	// Initialize MongoDB connection
 	mongoPort, _ := strconv.Atoi(vars["MONGO_PORT"]) // Don't need to check that this works because LoadVars() already did
-	mongoClient, err := mongodb.GetMongoDBInstance(vars["MONGO_INITDB_ROOT_USERNAME"], vars["MONGO_INITDB_ROOT_PASSWORD"], mongoPort)
+	mongoClient, err := mongodb.GetMongoDBInstance(vars["MONGO_INITDB_ROOT_USERNAME"], vars["MONGO_INITDB_ROOT_PASSWORD"], vars["MONGO_HOST"], mongoPort)
 	if err != nil {
 		return nil, errors.Join(errors.New("failed to initialize mongodb connection"), err)
 	}
