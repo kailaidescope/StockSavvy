@@ -2,16 +2,19 @@ package server
 
 import (
 	"errors"
+	"financial-helper/mongodb"
 	"log"
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/generative-ai-go/genai"
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var THROTTLE_TIME time.Duration = 2
@@ -24,6 +27,7 @@ type Server struct {
 	polygonKeys       []string
 	currentPolygonKey int
 	geminiKey         string
+	mongoClient       *mongo.Client
 }
 
 func (server *Server) GetPolygonKey() string {
@@ -82,12 +86,39 @@ func GetNewServer() (*Server, error) {
 		return nil, errors.New("gemini api key not found")
 	}
 
+	mongoUsername := os.Getenv("MONGO_INITDB_ROOT_USERNAME")
+	if mongoUsername == "" {
+		return nil, errors.New("mongo username not found")
+	}
+
+	mongoPassword := os.Getenv("MONGO_INITDB_ROOT_PASSWORD")
+	if mongoPassword == "" {
+		return nil, errors.New("mongo password not found")
+	}
+
+	mongoPortString := os.Getenv("MONGO_PORT")
+	if mongoPortString == "" {
+		return nil, errors.New("mongo port not found")
+	}
+
+	mongoPort, err := strconv.Atoi(mongoPortString)
+	if err != nil {
+		return nil, errors.Join(errors.New("failed to convert mongo port to int"), err)
+	}
+
 	// Initialize router
 	router := gin.Default()
 
+	// Set CORS rules
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
 	router.Use(cors.New(config))
+
+	// Initialize MongoDB connection
+	mongoClient, err := mongodb.GetMongoDBInstance(mongoUsername, mongoPassword, mongoPort)
+	if err != nil {
+		return nil, errors.Join(errors.New("failed to initialize mongodb connection"), err)
+	}
 
 	server := &Server{
 		Router:            router,
@@ -95,6 +126,7 @@ func GetNewServer() (*Server, error) {
 		polygonKeys:       polygonKeys,
 		currentPolygonKey: 0,
 		geminiKey:         geminiKey,
+		mongoClient:       mongoClient,
 	}
 
 	server.InitializeModel()
