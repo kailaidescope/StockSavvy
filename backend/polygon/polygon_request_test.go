@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var testTicker string = "AMD"
+var testTicker string = "AAPL"
 
 var polygonConnection *PolygonConnection
 var testTeardown func()
@@ -171,4 +171,29 @@ func TestPolygonGetTickerNews_SingleDay(t *testing.T) {
 		}
 	}
 	log.Println("Got response from PolygonGetTickerNews:", PolygonResponseToString(resp))
+}
+
+func TestPolygonGetTickerNews_SingleWeek(t *testing.T) {
+	if polygonConnection == nil {
+		t.Skip("test server not initialized")
+	}
+
+	end := time.Now().UTC().AddDate(0, 0, -5)
+	start := end.AddDate(0, 0, -30)
+	resp, err := polygonConnection.PolygonGetTickerNews(testTicker, start, end, 500)
+	if err != nil {
+		t.Fatalf("PolygonGetTickerNews error: %v", err)
+	}
+	if resp == nil {
+		t.Fatalf("expected non-nil response")
+	}
+	if resp.Results == nil || len(*resp.Results) == 0 {
+		t.Fatalf("expected news results")
+	}
+	for i, result := range *resp.Results {
+		if !result.PublishedUTC.After(start) || !result.PublishedUTC.Before(end) {
+			t.Fatalf("Result #%d in PolygonGetTickerNews was published on %s, which is not within range (%s - %s)", i, result.PublishedUTC.Format("2006-01-02T15:04:05Z"), start.Format("2006-01-02T15:04:05Z"), end.Format("2006-01-02T15:04:05Z"))
+		}
+	}
+	log.Fatal("Got response from PolygonGetTickerNews:", PolygonResponseToString(resp))
 }

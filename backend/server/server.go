@@ -15,8 +15,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-var THROTTLE_TIME time.Duration = 2
-
 type Server struct {
 	Router            *gin.Engine
 	GeminiClient      *genai.Client

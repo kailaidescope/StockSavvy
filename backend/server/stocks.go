@@ -263,7 +263,7 @@ func (server *Server) GetTickerNews(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, news)
-	time.Sleep(THROTTLE_TIME * time.Second)
+	time.Sleep(server.polygonConnection.ThrottleTime * time.Second)
 }
 
 // GetHoldings returns the holdings of a user

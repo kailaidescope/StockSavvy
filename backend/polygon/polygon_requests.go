@@ -23,14 +23,14 @@ import (
 type PolygonConnection struct {
 	polygonKeys       []string
 	currentPolygonKey int
-	throttleTime      time.Duration
+	ThrottleTime      time.Duration
 }
 
 func GetPolygonConnection(polygonKeys []string, throttleTime time.Duration) *PolygonConnection {
 	return &PolygonConnection{
 		polygonKeys:       polygonKeys,
 		currentPolygonKey: 0,
-		throttleTime:      throttleTime,
+		ThrottleTime:      throttleTime,
 	}
 }
 

@@ -332,7 +332,7 @@ func (server *Server) getTickerNews(mentionedTickers []string) (string, error) {
 		}
 		tickerInfo += tickerAggregateInfo
 
-		time.Sleep(THROTTLE_TIME * time.Second)
+		time.Sleep(server.polygonConnection.ThrottleTime * time.Second)
 	}
 	//fmt.Println(tickerInfo)
 
@@ -340,7 +340,7 @@ func (server *Server) getTickerNews(mentionedTickers []string) (string, error) {
 }
 
 func (server *Server) getTickerAggregate(ticker string) (string, error) {
-	time.Sleep(THROTTLE_TIME * time.Second)
+	time.Sleep(server.polygonConnection.ThrottleTime * time.Second)
 	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/month/2025-01-01/2025-02-01?adjusted=true&sort=asc&apiKey=%s", ticker, server.polygonConnection.GetPolygonKey())
 	method := "GET"
 
