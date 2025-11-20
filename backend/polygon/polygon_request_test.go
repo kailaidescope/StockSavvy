@@ -195,5 +195,5 @@ func TestPolygonGetTickerNews_SingleWeek(t *testing.T) {
 			t.Fatalf("Result #%d in PolygonGetTickerNews was published on %s, which is not within range (%s - %s)", i, result.PublishedUTC.Format("2006-01-02T15:04:05Z"), start.Format("2006-01-02T15:04:05Z"), end.Format("2006-01-02T15:04:05Z"))
 		}
 	}
-	log.Fatal("Got response from PolygonGetTickerNews:", PolygonResponseToString(resp))
+	log.Println("Got response from PolygonGetTickerNews:", PolygonResponseToString(resp))
 }

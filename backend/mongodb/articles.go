@@ -5,6 +5,7 @@ import (
 	"financial-helper/polygon"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -25,23 +26,30 @@ func InsertArticles(client *mongo.Client, dbName string, articles []Article) (in
 
 	coll := client.Database(dbName).Collection("ticker_news")
 
-	docs := make([]interface{}, len(articles))
-	for i := range articles {
-		docs[i] = articles[i]
+	models := make([]mongo.WriteModel, 0, len(articles))
+	for _, a := range articles {
+		// If polygon_id is present, use an upsert with $setOnInsert so we only insert when no document
+		// with the same polygon_id exists. If polygon_id is empty, fall back to a plain insert.
+		if a.PolygonID == "" {
+			models = append(models, mongo.NewInsertOneModel().SetDocument(a))
+		} else {
+			filter := bson.M{"polygon_id": a.PolygonID}
+			update := bson.M{"$setOnInsert": a}
+			models = append(models, mongo.NewUpdateOneModel().SetFilter(filter).SetUpdate(update).SetUpsert(true))
+		}
 	}
 
-	// unordered insert so one duplicate doesn't stop the rest
-	opts := options.InsertMany().SetOrdered(false)
-	res, err := coll.InsertMany(ctx, docs, opts)
+	opts := options.BulkWrite().SetOrdered(false)
+	res, err := coll.BulkWrite(ctx, models, opts)
 	if err != nil {
-		// if some docs inserted before error, return the count and the error
+		// If some writes succeeded before the error, return that count along with the error.
 		if res != nil {
-			return len(res.InsertedIDs), err
+			return int(res.InsertedCount + res.UpsertedCount), err
 		}
 		return 0, err
 	}
 
-	return len(res.InsertedIDs), nil
+	return int(res.InsertedCount + res.UpsertedCount), nil
 }
 
 type ArticlePublisher struct {

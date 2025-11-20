@@ -32,3 +32,6 @@ backend/data
 
 # Ignore docker storage
 docker
+
+# Ignore logs folder
+logs

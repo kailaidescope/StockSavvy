@@ -15,10 +15,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"reflect"
 	"strings"
 	"time"
 )
+
+var errLogger *log.Logger = log.New(os.Stderr, "ERROR: ", log.LstdFlags|log.Lshortfile)
 
 type PolygonConnection struct {
 	polygonKeys       []string
@@ -39,8 +42,6 @@ func (polygonConnection *PolygonConnection) GetPolygonKey() string {
 	return polygonConnection.polygonKeys[polygonConnection.currentPolygonKey]
 }
 
-var THROTTLE_TIME time.Duration = 2
-
 // Sends a customizable GET request to Polygon.io's API
 //
 // Input:
@@ -50,8 +51,8 @@ var THROTTLE_TIME time.Duration = 2
 // Output:
 //   - *T: the response from the Polygon API
 //   - error: non-nil if an error occurred during the request or if the response was not 200
-func GenericPolygonGetRequest[T any](url string) (*T, error) {
-	time.Sleep(THROTTLE_TIME * time.Second)
+func GenericPolygonGetRequest[T any](polygonConnection *PolygonConnection, url string) (*T, error) {
+	time.Sleep(polygonConnection.ThrottleTime)
 	method := "GET"
 
 	client := &http.Client{}
@@ -82,7 +83,7 @@ func GenericPolygonGetRequest[T any](url string) (*T, error) {
 		return nil, errors.Join(errors.New("error checking if decoded response has nil fields"), err)
 	}
 	if isNil {
-		log.Println("Response has some nil fields")
+		errLogger.Println("Response has some nil fields")
 		//return nil, errors.New("decoded response has nil fields")
 	}
 
@@ -141,7 +142,7 @@ type PolygonGetTickerResponse struct {
 func (polygonConnection *PolygonConnection) PolygonGetTicker(symbol string) (*PolygonGetTickerResponse, error) {
 	url := fmt.Sprintf("https://api.polygon.io/v3/reference/tickers?ticker=%s&active=true&limit=100&apiKey=%s", symbol, polygonConnection.GetPolygonKey())
 
-	response, err := GenericPolygonGetRequest[PolygonGetTickerResponse](url)
+	response, err := GenericPolygonGetRequest[PolygonGetTickerResponse](polygonConnection, url)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting info from polygon"), err)
 	}
@@ -184,7 +185,7 @@ type PolygonGetTickerAggregateResponse struct {
 //   - error: any error that occurred
 func (polygonConnection *PolygonConnection) PolygonGetTickerDailyClose(symbol string) (*PolygonGetTickerAggregateResponse, error) {
 	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/prev?apiKey=%s", symbol, polygonConnection.GetPolygonKey())
-	response, err := GenericPolygonGetRequest[PolygonGetTickerAggregateResponse](url)
+	response, err := GenericPolygonGetRequest[PolygonGetTickerAggregateResponse](polygonConnection, url)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting info from polygon"), err)
 	}
@@ -241,7 +242,7 @@ func (polygonConnection *PolygonConnection) PolygonGetTickerHistory(symbol strin
 		responseLengthLimit = limit
 	}
 	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/day/%s/%s?adjusted=true&sort=asc&limit=%d&apiKey=%s", symbol, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), responseLengthLimit, polygonConnection.GetPolygonKey())
-	response, err := GenericPolygonGetRequest[PolygonGetTickerHistoryResponse](url)
+	response, err := GenericPolygonGetRequest[PolygonGetTickerHistoryResponse](polygonConnection, url)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting info from polygon"), err)
 	}
@@ -305,7 +306,7 @@ func (polygonConnection *PolygonConnection) PolygonGetTickerNews(symbol string, 
 	order := "desc"
 	sort := "published_utc"
 	url := fmt.Sprintf("https://api.polygon.io/v2/reference/news?ticker=%s&order=%s&limit=%d&sort=%s&apiKey=%s&published_utc.gte=%s&published_utc.lte=%s", symbol, order, responseLengthLimit, sort, polygonConnection.GetPolygonKey(), startDate.Format("2006-01-02T15:04:05Z"), endDate.Format("2006-01-02T15:04:05Z"))
-	response, err := GenericPolygonGetRequest[PolygonGetTickerNews](url)
+	response, err := GenericPolygonGetRequest[PolygonGetTickerNews](polygonConnection, url)
 	if err != nil {
 		return nil, errors.Join(errors.New("error getting info from polygon"), err)
 	}
