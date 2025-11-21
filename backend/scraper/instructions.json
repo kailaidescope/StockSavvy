@@ -101,8 +101,8 @@
     "GTLB",
     "HOOD"
   ],
-  "start_time": "2025-10-02",
-  "end_time": "2025-11-19",
+  "start_time": "2022-10-02",
+  "end_time": "2025-10-02",
   "options": {
     "collection_window": 7,
     "collection_limit": 500
