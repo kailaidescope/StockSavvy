@@ -37,4 +37,4 @@ docker
 logs
 
 # Ignore Instructions file
-backend/scraper/instructions.json
+backend/scraper/**.json
