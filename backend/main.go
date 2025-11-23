@@ -24,7 +24,7 @@ func runScraper() {
 		log.Fatal("Failed to start scraper:", err)
 	}
 
-	scraper.ScrapeTickersFromJSON("./scraper/article_instructions.json")
+	scraper.ScrapeTickersNewsFromJSON("./scraper/article_instructions.json")
 }
 
 func runServer() {

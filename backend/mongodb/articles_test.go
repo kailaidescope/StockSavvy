@@ -104,10 +104,10 @@ func TestInsertArticles(t *testing.T) {
 		t.Fatalf("found article polygon_id mismatch: expected %s got %s", polygonID, found.PolygonID)
 	}
 
-	/* // cleanup
+	// cleanup
 	if _, err := coll.DeleteMany(ctx, bson.M{"polygon_id": polygonID}); err != nil {
 		t.Logf("cleanup DeleteMany error (non-fatal): %v", err)
-	} */
+	}
 }
 
 // TestInsertMultipleArticles inserts a batch of 20 articles with randomized polygon_id and published_at.
@@ -173,7 +173,7 @@ func TestInsertMultipleArticles(t *testing.T) {
 	}
 
 	// cleanup - remove the batch by prefix
-	/* if _, err := coll.DeleteMany(ctx, bson.M{"polygon_id": bson.M{"$regex": "^" + prefix}}); err != nil {
-	    t.Logf("cleanup DeleteMany error (non-fatal): %v", err)
-	} */
+	if _, err := coll.DeleteMany(ctx, bson.M{"polygon_id": bson.M{"$regex": "^" + prefix}}); err != nil {
+		t.Logf("cleanup DeleteMany error (non-fatal): %v", err)
+	}
 }

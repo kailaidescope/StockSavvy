@@ -3,82 +3,39 @@ package scraper
 import (
 	"encoding/json"
 	"errors"
-	"financial-helper/environment"
 	"financial-helper/mongodb"
-	"financial-helper/polygon"
 	"fmt"
-	"log"
 	"math"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/schollz/progressbar/v3"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
-var errLogger *log.Logger = log.New(os.Stderr, "ERROR: ", log.LstdFlags|log.Lshortfile)
-
-type Scraper struct {
-	mongoClient   *mongo.Client
-	polygonClient *polygon.PolygonConnection
-	articleDBName string
-}
-
-func New() (*Scraper, error) {
-	if err := environment.LoadEnvironment(); err != nil {
-		return nil, errors.Join(errors.New("couldn't load environment for server"), err)
-	}
-
-	vars, polygonKeys, err := environment.LoadVars()
-	if err != nil {
-		return nil, errors.Join(errors.New("couldn't load env vars"), err)
-	}
-
-	// Initialize MongoDB connection
-	mongoPort, _ := strconv.Atoi(vars["MONGO_PORT"]) // Don't need to check that this works because LoadVars() already did
-	mongoClient, err := mongodb.GetMongoDBInstance(vars["MONGO_INITDB_ROOT_USERNAME"], vars["MONGO_INITDB_ROOT_PASSWORD"], vars["MONGO_HOST"], mongoPort)
-	if err != nil {
-		return nil, errors.Join(errors.New("failed to initialize mongodb connection"), err)
-	}
-
-	// Initialize Polygon connection
-	throttleTimeInt, _ := strconv.Atoi(vars["THROTTLE_TIME"]) // Don't need to check that this works because LoadVars() already did
-	polygonConnection := polygon.GetPolygonConnection(polygonKeys, time.Duration(throttleTimeInt)*time.Second)
-
-	scraper := &Scraper{
-		mongoClient:   mongoClient,
-		polygonClient: polygonConnection,
-		articleDBName: os.Getenv("MONGO_INITDB_DATABASE"),
-	}
-
-	return scraper, nil
-}
-
-type ScrapeTickerNewsOptions struct {
+type ScrapeTickerHistOptions struct {
 	collectionWindow *time.Duration
 	collectionLimit  *int
 }
 
-type newsOptionsJSON struct {
+type historyOptionsJSON struct {
 	CollectionWindow *int `json:"collection_window"`
 	CollectionLimit  *int `json:"collection_limit"`
 }
-type newsInstructionsJSON struct {
-	Tickers   []string         `json:"tickers"`
-	StartTime string           `json:"start_time"`
-	EndTime   string           `json:"end_time"`
-	Options   *newsOptionsJSON `json:"options"`
+type historyInstructionsJSON struct {
+	Tickers   []string            `json:"tickers"`
+	StartTime string              `json:"start_time"`
+	EndTime   string              `json:"end_time"`
+	Options   *historyOptionsJSON `json:"options"`
 }
 
 // Reads scraping instructions from file and runs a scrape if instructions are valid
-func (scraper *Scraper) ScrapeTickersNewsFromJSON(path string) error {
+func (scraper *Scraper) ScrapeTickersHistFromJSON(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return errors.Join(errors.New("failed to read instructions file"), err)
 	}
 
-	var inst newsInstructionsJSON
+	var inst historyInstructionsJSON
 	if err := json.Unmarshal(data, &inst); err != nil {
 		return errors.Join(errors.New("failed to parse instructions JSON"), err)
 	}
@@ -96,7 +53,7 @@ func (scraper *Scraper) ScrapeTickersNewsFromJSON(path string) error {
 		return errors.Join(errors.New("invalid end_time"), err)
 	}
 
-	var opts ScrapeTickerNewsOptions
+	var opts ScrapeTickerHistOptions
 	if inst.Options != nil {
 		if inst.Options.CollectionWindow != nil {
 			d := time.Duration(*inst.Options.CollectionWindow) * 24 * time.Hour
@@ -108,10 +65,10 @@ func (scraper *Scraper) ScrapeTickersNewsFromJSON(path string) error {
 		}
 	}
 
-	return scraper.ScrapeTickersNews(inst.Tickers, start, end, opts)
+	return scraper.ScrapeTickersHistory(inst.Tickers, start, end, opts)
 }
 
-func (scraper *Scraper) ScrapeTickersNews(symbols []string, start, end time.Time, options ScrapeTickerNewsOptions) error {
+func (scraper *Scraper) ScrapeTickersHistory(symbols []string, start, end time.Time, options ScrapeTickerHistOptions) error {
 	if len(symbols) == 0 {
 		return nil
 	}
@@ -146,7 +103,7 @@ func (scraper *Scraper) ScrapeTickersNews(symbols []string, start, end time.Time
 		}())
 
 		tickerStart := time.Now()
-		numInserted, numSkipped, err := scraper.ScrapeTickerNews(symbol, start, end, &options)
+		numInserted, numSkipped, err := scraper.ScrapeTickerHistory(symbol, start, end, &options)
 		duration := time.Since(tickerStart)
 
 		// update stats
@@ -206,7 +163,7 @@ func (scraper *Scraper) ScrapeTickersNews(symbols []string, start, end time.Time
 	return nil
 }
 
-func (scraper *Scraper) ScrapeTickerNews(symbol string, start, end time.Time, options *ScrapeTickerNewsOptions) (int, int, error) {
+func (scraper *Scraper) ScrapeTickerHistory(symbol string, start, end time.Time, options *ScrapeTickerHistOptions) (int, int, error) {
 	// Validate input
 	if start.After(end) {
 		return 0, 0, errors.New("start time must be before end time")
@@ -311,11 +268,4 @@ func (scraper *Scraper) ScrapeTickerNews(symbol string, start, end time.Time, op
 
 	_ = bar.Finish()
 	return insertedTotal, skippedTotal, nil
-}
-
-func formatDuration(d time.Duration) string {
-	if d <= 0 {
-		return "00s"
-	}
-	return d.Truncate(time.Second).String()
 }
