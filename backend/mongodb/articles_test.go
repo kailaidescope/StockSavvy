@@ -177,3 +177,218 @@ func TestInsertMultipleArticles(t *testing.T) {
 		t.Logf("cleanup DeleteMany error (non-fatal): %v", err)
 	}
 }
+
+// TestGetArticlesByTicker verifies GetArticlesByTicker returns articles containing the requested ticker.
+func TestGetArticlesByTicker(t *testing.T) {
+	if testMongoClient == nil {
+		t.Skip("test mongo client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	prefix := fmt.Sprintf("test-query-ticker-%d-", time.Now().UnixNano())
+	ticker := "TTICK"
+
+	// create 3 articles, 2 containing ticker "TTICK" and 1 with a different ticker
+	articles := make([]Article, 0, 3)
+	for i := 0; i < 3; i++ {
+		pid := fmt.Sprintf("%s%d-%d", prefix, i, rand.Intn(1_000_000))
+		tks := []string{"OTHER"}
+		if i < 2 {
+			tks = []string{ticker}
+		}
+		a := Article{
+			ID:          primitive.NewObjectID(),
+			PolygonID:   pid,
+			Publisher:   ArticlePublisher{Name: "Query Publisher"},
+			Title:       fmt.Sprintf("Query Article %d", i),
+			Author:      "query-tester",
+			PublishedAt: primitive.NewDateTimeFromTime(time.Now().UTC()),
+			ArticleURL:  "https://example.test/article",
+			Tickers:     tks,
+			ImageURL:    "https://example.test/image.png",
+			Description: "Query test article",
+			Keywords:    []string{"query", "test"},
+		}
+		articles = append(articles, a)
+	}
+
+	inserted, err := InsertArticles(testMongoClient, DB_NAME, articles)
+	if err != nil {
+		t.Fatalf("InsertArticles returned error: %v", err)
+	}
+	if inserted != len(articles) {
+		t.Fatalf("expected %d inserted documents, got %d", len(articles), inserted)
+	}
+
+	// call function under test
+	got, err := GetArticlesByTicker(testMongoClient, DB_NAME, ticker, 10)
+	if err != nil {
+		t.Fatalf("GetArticlesByTicker returned error: %v", err)
+	}
+	if len(got) < 2 {
+		t.Fatalf("expected at least 2 articles for ticker %s, got %d", ticker, len(got))
+	}
+
+	//log.Printf("Got article(s): %#v", got)
+
+	// cleanup
+	coll := testMongoClient.Database(DB_NAME).Collection("ticker_news")
+	if _, err := coll.DeleteMany(ctx, bson.M{"polygon_id": bson.M{"$regex": "^" + prefix}}); err != nil {
+		t.Logf("cleanup error: %v", err)
+	}
+}
+
+// TestGetArticlesByTickerOverRange ensures filtering by ticker + time range works.
+func TestGetArticlesByTickerOverRange(t *testing.T) {
+	if testMongoClient == nil {
+		t.Skip("test mongo client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	prefix := fmt.Sprintf("test-query-range-%d-", time.Now().UnixNano())
+	ticker := "RANGE"
+
+	now := time.Now().UTC()
+	inRangeTime := now.Add(-2 * time.Hour)
+	outRangeTime := now.Add(-48 * time.Hour)
+
+	a1 := Article{
+		ID:          primitive.NewObjectID(),
+		PolygonID:   fmt.Sprintf("%s1-%d", prefix, rand.Intn(1_000_000)),
+		Publisher:   ArticlePublisher{Name: "Range Publisher"},
+		Title:       "InRange Article",
+		Author:      "range-tester",
+		PublishedAt: primitive.NewDateTimeFromTime(inRangeTime),
+		ArticleURL:  "https://example.test/article",
+		Tickers:     []string{ticker},
+	}
+	a2 := Article{
+		ID:          primitive.NewObjectID(),
+		PolygonID:   fmt.Sprintf("%s2-%d", prefix, rand.Intn(1_000_000)),
+		Publisher:   ArticlePublisher{Name: "Range Publisher"},
+		Title:       "OutRange Article",
+		Author:      "range-tester",
+		PublishedAt: primitive.NewDateTimeFromTime(outRangeTime),
+		ArticleURL:  "https://example.test/article",
+		Tickers:     []string{ticker},
+	}
+
+	inserted, err := InsertArticles(testMongoClient, DB_NAME, []Article{a1, a2})
+	if err != nil {
+		t.Fatalf("InsertArticles returned error: %v", err)
+	}
+	if inserted != 2 {
+		t.Fatalf("expected 2 inserted documents, got %d", inserted)
+	}
+
+	start := now.Add(-24 * time.Hour)
+	end := now
+
+	got, err := GetArticlesByTickerOverRange(testMongoClient, DB_NAME, ticker, start, end, 10)
+	if err != nil {
+		t.Fatalf("GetArticlesByTickerOverRange returned error: %v", err)
+	}
+	// should include only the in-range article
+	if len(got) != 1 {
+		t.Fatalf("expected 1 article in range, got %d", len(got))
+	}
+	if got[0].PolygonID != a1.PolygonID {
+		t.Fatalf("expected polygon_id %s, got %s", a1.PolygonID, got[0].PolygonID)
+	}
+
+	//log.printf("Got article(s): %#v", got)
+
+	// cleanup
+	coll := testMongoClient.Database(DB_NAME).Collection("ticker_news")
+	if _, err := coll.DeleteMany(ctx, bson.M{"polygon_id": bson.M{"$regex": "^" + prefix}}); err != nil {
+		t.Logf("cleanup error: %v", err)
+	}
+}
+
+// TestGetArticlesOverRange verifies GetArticlesOverRange returns articles filtered by published_at range.
+func TestGetArticlesOverRange(t *testing.T) {
+	if testMongoClient == nil {
+		t.Skip("test mongo client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	prefix := fmt.Sprintf("test-query-over-%d-", time.Now().UnixNano())
+
+	now := time.Now().UTC()
+	inside := now.Add(-3 * time.Hour)
+	inside2 := now.Add(-2 * time.Hour)
+	outside := now.Add(-72 * time.Hour)
+
+	a1 := Article{
+		ID:          primitive.NewObjectID(),
+		PolygonID:   fmt.Sprintf("%s1-%d", prefix, rand.Intn(1_000_000)),
+		Publisher:   ArticlePublisher{Name: "Over Publisher"},
+		Title:       "Inside 1",
+		Author:      "over-tester",
+		PublishedAt: primitive.NewDateTimeFromTime(inside),
+		ArticleURL:  "https://example.test/article",
+		Tickers:     []string{"X"},
+	}
+	a2 := Article{
+		ID:          primitive.NewObjectID(),
+		PolygonID:   fmt.Sprintf("%s2-%d", prefix, rand.Intn(1_000_000)),
+		Publisher:   ArticlePublisher{Name: "Over Publisher"},
+		Title:       "Inside 2",
+		Author:      "over-tester",
+		PublishedAt: primitive.NewDateTimeFromTime(inside2),
+		ArticleURL:  "https://example.test/article",
+		Tickers:     []string{"Y"},
+	}
+	a3 := Article{
+		ID:          primitive.NewObjectID(),
+		PolygonID:   fmt.Sprintf("%s3-%d", prefix, rand.Intn(1_000_000)),
+		Publisher:   ArticlePublisher{Name: "Over Publisher"},
+		Title:       "Outside",
+		Author:      "over-tester",
+		PublishedAt: primitive.NewDateTimeFromTime(outside),
+		ArticleURL:  "https://example.test/article",
+		Tickers:     []string{"Z"},
+	}
+
+	inserted, err := InsertArticles(testMongoClient, DB_NAME, []Article{a1, a2, a3})
+	if err != nil {
+		t.Fatalf("InsertArticles returned error: %v", err)
+	}
+	if inserted != 3 {
+		t.Fatalf("expected 3 inserted documents, got %d", inserted)
+	}
+
+	start := now.Add(-24 * time.Hour)
+	end := now
+
+	got, err := GetArticlesOverRange(testMongoClient, DB_NAME, start, end, 10)
+	if err != nil {
+		t.Fatalf("GetArticlesOverRange returned error: %v", err)
+	}
+
+	// we expect at least the two inside articles to be returned (there may be other data in DB)
+	foundIDs := map[string]struct{}{}
+	for _, g := range got {
+		foundIDs[g.PolygonID] = struct{}{}
+	}
+	if _, ok := foundIDs[a1.PolygonID]; !ok {
+		t.Fatalf("expected to find article %s in results", a1.PolygonID)
+	}
+	if _, ok := foundIDs[a2.PolygonID]; !ok {
+		t.Fatalf("expected to find article %s in results", a2.PolygonID)
+	}
+
+	//log.printf("Got article(s): %#v", got)
+
+	// cleanup
+	coll := testMongoClient.Database(DB_NAME).Collection("ticker_news")
+	if _, err := coll.DeleteMany(ctx, bson.M{"polygon_id": bson.M{"$regex": "^" + prefix}}); err != nil {
+		t.Logf("cleanup error: %v", err)
+	}
+}

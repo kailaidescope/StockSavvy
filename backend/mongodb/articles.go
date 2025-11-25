@@ -11,6 +11,34 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type ArticlePublisher struct {
+	Name        string `bson:"name,omitempty"`
+	HomepageURL string `bson:"homepage_url,omitempty"`
+	LogoURL     string `bson:"logo_url,omitempty"`
+	FaviconURL  string `bson:"favicon_url,omitempty"`
+}
+
+type ArticleInsight struct {
+	Ticker             string `bson:"ticker,omitempty"`
+	Sentiment          string `bson:"sentiment,omitempty"`
+	SentimentReasoning string `bson:"sentiment_reasoning,omitempty"`
+}
+
+type Article struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty"`
+	PolygonID   string             `bson:"polygon_id,omitempty"`
+	Publisher   ArticlePublisher   `bson:"publisher,omitempty"`
+	Title       string             `bson:"title,omitempty"`
+	Author      string             `bson:"author,omitempty"`
+	PublishedAt primitive.DateTime `bson:"published_at,omitempty"`
+	ArticleURL  string             `bson:"article_url,omitempty"`
+	Tickers     []string           `bson:"tickers,omitempty"`
+	ImageURL    string             `bson:"image_url,omitempty"`
+	Description string             `bson:"description,omitempty"`
+	Keywords    []string           `bson:"keywords,omitempty"`
+	Insights    []ArticleInsight   `bson:"insights,omitempty"`
+}
+
 // InsertArticles inserts the provided articles into the "ticker_news" collection of dbName.
 // It returns the number of successfully inserted documents and an error (if any).
 func InsertArticles(client *mongo.Client, dbName string, articles []Article) (int, error) {
@@ -52,32 +80,150 @@ func InsertArticles(client *mongo.Client, dbName string, articles []Article) (in
 	return int(res.InsertedCount + res.UpsertedCount), nil
 }
 
-type ArticlePublisher struct {
-	Name        string `bson:"name,omitempty"`
-	HomepageURL string `bson:"homepage_url,omitempty"`
-	LogoURL     string `bson:"logo_url,omitempty"`
-	FaviconURL  string `bson:"favicon_url,omitempty"`
+// GetArticlesByTicker returns up to `limit` articles containing `ticker` in the `tickers` array,
+// sorted by `published_at` descending. If limit <= 0 a default of 100 is used.
+func GetArticlesByTicker(client *mongo.Client, dbName, ticker string, limit int) ([]Article, error) {
+	if client == nil {
+		return nil, mongo.ErrClientDisconnected
+	}
+	if ticker == "" {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	coll := client.Database(dbName).Collection("ticker_news")
+
+	filter := bson.M{"tickers": ticker}
+	findOpts := options.Find().SetSort(bson.D{{Key: "published_at", Value: -1}}).SetLimit(int64(limit))
+
+	cursor, err := coll.Find(ctx, filter, findOpts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var out []Article
+	for cursor.Next(ctx) {
+		var a Article
+		if err := cursor.Decode(&a); err != nil {
+			// skip malformed docs but continue
+			continue
+		}
+		out = append(out, a)
+	}
+	if err := cursor.Err(); err != nil {
+		return out, err
+	}
+	return out, nil
 }
 
-type ArticleInsight struct {
-	Ticker             string `bson:"ticker,omitempty"`
-	Sentiment          string `bson:"sentiment,omitempty"`
-	SentimentReasoning string `bson:"sentiment_reasoning,omitempty"`
+// GetArticlesByTickerOverRange returns up to `limit` articles for `ticker` where
+// published_at is in [start, end). If start.IsZero() it is treated as Unix epoch.
+// If end.IsZero() it is treated as time.Now(). If limit <= 0 a default of 100 is used.
+func GetArticlesByTickerOverRange(client *mongo.Client, dbName, ticker string, start, end time.Time, limit int) ([]Article, error) {
+	if client == nil {
+		return nil, mongo.ErrClientDisconnected
+	}
+	if ticker == "" {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	if start.IsZero() {
+		start = time.Unix(0, 0).UTC()
+	}
+	if end.IsZero() {
+		end = time.Now().UTC()
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	coll := client.Database(dbName).Collection("ticker_news")
+
+	filter := bson.M{
+		"tickers": ticker,
+		"published_at": bson.M{
+			"$gte": primitive.NewDateTimeFromTime(start),
+			"$lt":  primitive.NewDateTimeFromTime(end),
+		},
+	}
+	findOpts := options.Find().SetSort(bson.D{{Key: "published_at", Value: -1}}).SetLimit(int64(limit))
+
+	cursor, err := coll.Find(ctx, filter, findOpts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var out []Article
+	for cursor.Next(ctx) {
+		var a Article
+		if err := cursor.Decode(&a); err != nil {
+			continue
+		}
+		out = append(out, a)
+	}
+	if err := cursor.Err(); err != nil {
+		return out, err
+	}
+	return out, nil
 }
 
-type Article struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty"`
-	PolygonID   string             `bson:"polygon_id,omitempty"`
-	Publisher   ArticlePublisher   `bson:"publisher,omitempty"`
-	Title       string             `bson:"title,omitempty"`
-	Author      string             `bson:"author,omitempty"`
-	PublishedAt primitive.DateTime `bson:"published_at,omitempty"`
-	ArticleURL  string             `bson:"article_url,omitempty"`
-	Tickers     []string           `bson:"tickers,omitempty"`
-	ImageURL    string             `bson:"image_url,omitempty"`
-	Description string             `bson:"description,omitempty"`
-	Keywords    []string           `bson:"keywords,omitempty"`
-	Insights    []ArticleInsight   `bson:"insights,omitempty"`
+// GetArticlesOverRange returns up to `limit` articles with published_at in [start, end).
+// If start.IsZero() it is treated as Unix epoch. If end.IsZero() it is treated as time.Now().
+// If limit <= 0 a default of 100 is used.
+func GetArticlesOverRange(client *mongo.Client, dbName string, start, end time.Time, limit int) ([]Article, error) {
+	if client == nil {
+		return nil, mongo.ErrClientDisconnected
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	if start.IsZero() {
+		start = time.Unix(0, 0).UTC()
+	}
+	if end.IsZero() {
+		end = time.Now().UTC()
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	coll := client.Database(dbName).Collection("ticker_news")
+
+	filter := bson.M{
+		"published_at": bson.M{
+			"$gte": primitive.NewDateTimeFromTime(start),
+			"$lt":  primitive.NewDateTimeFromTime(end),
+		},
+	}
+	findOpts := options.Find().SetSort(bson.D{{Key: "published_at", Value: -1}}).SetLimit(int64(limit))
+
+	cursor, err := coll.Find(ctx, filter, findOpts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var out []Article
+	for cursor.Next(ctx) {
+		var a Article
+		if err := cursor.Decode(&a); err != nil {
+			continue
+		}
+		out = append(out, a)
+	}
+	if err := cursor.Err(); err != nil {
+		return out, err
+	}
+	return out, nil
 }
 
 // PolygonNewsToArticles converts a polygon.PolygonGetTickerNews value into a slice of mongodb Article.
