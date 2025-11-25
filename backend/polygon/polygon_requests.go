@@ -244,7 +244,7 @@ func (polygonConnection *PolygonConnection) PolygonGetTickerHistory(symbol strin
 	url := fmt.Sprintf("https://api.polygon.io/v2/aggs/ticker/%s/range/1/day/%s/%s?adjusted=true&sort=asc&limit=%d&apiKey=%s", symbol, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), responseLengthLimit, polygonConnection.GetPolygonKey())
 	response, err := GenericPolygonGetRequest[PolygonGetTickerHistoryResponse](polygonConnection, url)
 	if err != nil {
-		return nil, errors.Join(errors.New("error getting info from polygon"), err)
+		return nil, errors.Join(fmt.Errorf("error getting info from polygon (response: %v)", response), err)
 	}
 	if response.Results == nil || len(*response.Results) == 0 || response.Count == nil || *response.Count == 0 {
 		return nil, errors.New("no results found")

@@ -12,30 +12,30 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-type ScrapeTickerHistOptions struct {
+type ScrapeTickerAggregatesOptions struct {
 	collectionWindow *time.Duration
 	collectionLimit  *int
 }
 
-type historyOptionsJSON struct {
+type aggregatesOptionsJSON struct {
 	CollectionWindow *int `json:"collection_window"`
 	CollectionLimit  *int `json:"collection_limit"`
 }
-type historyInstructionsJSON struct {
-	Tickers   []string            `json:"tickers"`
-	StartTime string              `json:"start_time"`
-	EndTime   string              `json:"end_time"`
-	Options   *historyOptionsJSON `json:"options"`
+type aggregatesInstructionsJSON struct {
+	Tickers   []string               `json:"tickers"`
+	StartTime string                 `json:"start_time"`
+	EndTime   string                 `json:"end_time"`
+	Options   *aggregatesOptionsJSON `json:"options"`
 }
 
 // Reads scraping instructions from file and runs a scrape if instructions are valid
-func (scraper *Scraper) ScrapeTickersHistFromJSON(path string) error {
+func (scraper *Scraper) ScrapeTickersAggregatesFromJSON(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return errors.Join(errors.New("failed to read instructions file"), err)
 	}
 
-	var inst historyInstructionsJSON
+	var inst aggregatesInstructionsJSON
 	if err := json.Unmarshal(data, &inst); err != nil {
 		return errors.Join(errors.New("failed to parse instructions JSON"), err)
 	}
@@ -53,7 +53,7 @@ func (scraper *Scraper) ScrapeTickersHistFromJSON(path string) error {
 		return errors.Join(errors.New("invalid end_time"), err)
 	}
 
-	var opts ScrapeTickerHistOptions
+	var opts ScrapeTickerAggregatesOptions
 	if inst.Options != nil {
 		if inst.Options.CollectionWindow != nil {
 			d := time.Duration(*inst.Options.CollectionWindow) * 24 * time.Hour
@@ -65,10 +65,10 @@ func (scraper *Scraper) ScrapeTickersHistFromJSON(path string) error {
 		}
 	}
 
-	return scraper.ScrapeTickersHistory(inst.Tickers, start, end, opts)
+	return scraper.ScrapeTickersAggregates(inst.Tickers, start, end, opts)
 }
 
-func (scraper *Scraper) ScrapeTickersHistory(symbols []string, start, end time.Time, options ScrapeTickerHistOptions) error {
+func (scraper *Scraper) ScrapeTickersAggregates(symbols []string, start, end time.Time, options ScrapeTickerAggregatesOptions) error {
 	if len(symbols) == 0 {
 		return nil
 	}
@@ -78,8 +78,8 @@ func (scraper *Scraper) ScrapeTickersHistory(symbols []string, start, end time.T
 	// Stats
 	startAll := time.Now()
 	var tickersProcessed int
-	var totalInsertedArticles int
-	totalSkippedArticles := 0
+	var totalInsertedAggregates int
+	totalSkippedAggregates := 0
 	var totalTickerDuration time.Duration
 
 	for i, symbol := range symbols {
@@ -103,13 +103,13 @@ func (scraper *Scraper) ScrapeTickersHistory(symbols []string, start, end time.T
 		}())
 
 		tickerStart := time.Now()
-		numInserted, numSkipped, err := scraper.ScrapeTickerHistory(symbol, start, end, &options)
+		numInserted, numSkipped, err := scraper.ScrapeTickerAggregates(symbol, start, end, &options)
 		duration := time.Since(tickerStart)
 
 		// update stats
 		tickersProcessed++
-		totalInsertedArticles += numInserted
-		totalSkippedArticles += numSkipped
+		totalInsertedAggregates += numInserted
+		totalSkippedAggregates += numSkipped
 		totalTickerDuration += duration
 
 		// compute per-ticker progress summary
@@ -122,24 +122,24 @@ func (scraper *Scraper) ScrapeTickersHistory(symbols []string, start, end time.T
 		if tickersProcessed > 0 {
 			etaPerTicker = avgTimePerTicker * time.Duration(total-tickersProcessed)
 		}
-		avgArticlesPerTicker := 0.0
+		avgAggregatesPerTicker := 0.0
 		if tickersProcessed > 0 {
-			avgArticlesPerTicker = float64(totalInsertedArticles) / float64(tickersProcessed)
+			avgAggregatesPerTicker = float64(totalInsertedAggregates) / float64(tickersProcessed)
 		}
 		avgSkippedPerTicker := 0.0
 		if tickersProcessed > 0 {
-			avgSkippedPerTicker = float64(totalSkippedArticles) / float64(tickersProcessed)
+			avgSkippedPerTicker = float64(totalSkippedAggregates) / float64(tickersProcessed)
 		}
 
 		// print progress summary after each ticker scrape
-		fmt.Printf("\nPROGRESS: %.1f%%\neta=%s\navg_time_per_ticker=%s\narticles=%d\nskipped_articles=%d\ntickers=%d\navg_articles_per_ticker=%.2f\navg_skipped_per_ticker=%.2f\n",
-			percent, formatDuration(etaPerTicker), formatDuration(avgTimePerTicker), totalInsertedArticles, totalSkippedArticles, tickersProcessed, avgArticlesPerTicker, avgSkippedPerTicker)
+		fmt.Printf("\nPROGRESS: %.1f%%\neta=%s\navg_time_per_ticker=%s\naggregates_inserted=%d\nskipped_aggregates=%d\ntickers=%d\navg_aggregates_per_ticker=%.2f\navg_skipped_per_ticker=%.2f\n",
+			percent, formatDuration(etaPerTicker), formatDuration(avgTimePerTicker), totalInsertedAggregates, totalSkippedAggregates, tickersProcessed, avgAggregatesPerTicker, avgSkippedPerTicker)
 
 		if err != nil {
 			// print partial results before returning
 			totalElapsed := time.Since(startAll)
-			fmt.Printf("\nRESULTS:\ntotal_time=%s\naverage_time_per_ticker=%s\ntickers_processed=%d\ninserted_articles=%d\nskipped_articles=%d\navg_articles_per_ticker=%.2f\navg_skipped_per_ticker=%.2f\n",
-				formatDuration(totalElapsed), formatDuration(avgTimePerTicker), tickersProcessed, totalInsertedArticles, totalSkippedArticles, avgArticlesPerTicker, avgSkippedPerTicker)
+			fmt.Printf("\nRESULTS:\ntotal_time=%s\naverage_time_per_ticker=%s\ntickers_processed=%d\ninserted_aggregates=%d\nskipped_aggregates=%d\navg_aggregates_per_ticker=%.2f\navg_skipped_per_ticker=%.2f\n",
+				formatDuration(totalElapsed), formatDuration(avgTimePerTicker), tickersProcessed, totalInsertedAggregates, totalSkippedAggregates, avgAggregatesPerTicker, avgSkippedPerTicker)
 			return errors.Join(errors.New("error scraping "+symbol), err)
 		}
 	}
@@ -150,20 +150,20 @@ func (scraper *Scraper) ScrapeTickersHistory(symbols []string, start, end time.T
 	if tickersProcessed > 0 {
 		avgTimePerTicker = totalTickerDuration / time.Duration(tickersProcessed)
 	}
-	avgArticlesPerTicker := 0.0
+	avgAggregatesPerTicker := 0.0
 	if tickersProcessed > 0 {
-		avgArticlesPerTicker = float64(totalInsertedArticles) / float64(tickersProcessed)
+		avgAggregatesPerTicker = float64(totalInsertedAggregates) / float64(tickersProcessed)
 	}
 	avgSkippedPerTicker := 0.0
 	if tickersProcessed > 0 {
-		avgSkippedPerTicker = float64(totalSkippedArticles) / float64(tickersProcessed)
+		avgSkippedPerTicker = float64(totalSkippedAggregates) / float64(tickersProcessed)
 	}
-	fmt.Printf("\n\n=== RESULTS: ===\ntotal_time=%s\naverage_time_per_ticker=%s\ntickers_processed=%d\ninserted_articles=%d\nskipped_articles=%d\navg_articles_per_ticker=%.2f\navg_skipped_per_ticker=%.2f\n\n=============",
-		formatDuration(totalElapsed), formatDuration(avgTimePerTicker), tickersProcessed, totalInsertedArticles, totalSkippedArticles, avgArticlesPerTicker, avgSkippedPerTicker)
+	fmt.Printf("\n\n=== RESULTS: ===\ntotal_time=%s\naverage_time_per_ticker=%s\ntickers_processed=%d\ninserted_aggregates=%d\nskipped_aggregates=%d\navg_aggregates_per_ticker=%.2f\navg_skipped_per_ticker=%.2f\n\n=============",
+		formatDuration(totalElapsed), formatDuration(avgTimePerTicker), tickersProcessed, totalInsertedAggregates, totalSkippedAggregates, avgAggregatesPerTicker, avgSkippedPerTicker)
 	return nil
 }
 
-func (scraper *Scraper) ScrapeTickerHistory(symbol string, start, end time.Time, options *ScrapeTickerHistOptions) (int, int, error) {
+func (scraper *Scraper) ScrapeTickerAggregates(symbol string, start, end time.Time, options *ScrapeTickerAggregatesOptions) (int, int, error) {
 	// Validate input
 	if start.After(end) {
 		return 0, 0, errors.New("start time must be before end time")
@@ -181,10 +181,10 @@ func (scraper *Scraper) ScrapeTickerHistory(symbol string, start, end time.Time,
 		}
 	}
 
-	// Calculate number of steps for the progress bar
-	totalSeconds := end.Sub(start).Seconds()
-	windowSeconds := collectionWindow.Seconds()
-	numSteps := int(math.Ceil(totalSeconds / windowSeconds))
+	// Calculate number of steps (windows) for the progress bar based on days
+	totalDays := int(math.Ceil(end.Sub(start).Hours() / 24.0))
+	windowDays := int(math.Max(1, math.Floor(collectionWindow.Hours()/24.0)))
+	numSteps := int(math.Ceil(float64(totalDays) / float64(windowDays)))
 	if numSteps < 1 {
 		numSteps = 1
 	}
@@ -196,13 +196,22 @@ func (scraper *Scraper) ScrapeTickerHistory(symbol string, start, end time.Time,
 		progressbar.OptionSetPredictTime(false),
 	)
 
-	// Iterate through time series
+	// Iterate through time series without overlapping days:
+	// Each window covers exactly `windowDays` calendar days (inclusive).
 	var insertedTotal int
 	skippedTotal := 0
 	stepDone := 0
 	iterationStart := time.Now()
-	for currentStart := start; currentStart.Before(end); {
-		currentEnd := currentStart.Add(collectionWindow)
+
+	for currentStart := start; !currentStart.After(end); {
+		// Compute window end so that the window covers `windowDays` days inclusive.
+		var currentEnd time.Time
+		wd := windowDays
+		if wd < 1 {
+			wd = 1
+		}
+		// End is start + (wd-1) days (inclusive window of wd days)
+		currentEnd = currentStart.Add(time.Duration(wd-1) * 24 * time.Hour)
 		if currentEnd.After(end) {
 			currentEnd = end
 		}
@@ -227,43 +236,44 @@ func (scraper *Scraper) ScrapeTickerHistory(symbol string, start, end time.Time,
 				return "??"
 			}()))
 
-			news, err := scraper.polygonClient.PolygonGetTickerNews(symbol, currentStart, currentEnd, collectionLimit)
+			history, err := scraper.polygonClient.PolygonGetTickerHistory(symbol, currentStart, currentEnd, collectionLimit)
 			if err != nil {
 				// retry once
-				news, err = scraper.polygonClient.PolygonGetTickerNews(symbol, currentStart, currentEnd, collectionLimit)
+				history, err = scraper.polygonClient.PolygonGetTickerHistory(symbol, currentStart, currentEnd, collectionLimit)
 				if err != nil {
-					errLogger.Printf("Error receiving ticker data for %s from %s to %s : %s", symbol, currentStart.Format("2006-01-02T15:04:05Z"), currentEnd.Format("2006-01-02T15:04:05Z"), err.Error())
+					errLogger.Printf("Error receiving aggregates for %s from %s to %s : %s", symbol, currentStart.Format("2006-01-02T15:04:05Z"), currentEnd.Format("2006-01-02T15:04:05Z"), err.Error())
 					return
 				}
 			}
 
-			mongoNews, err := mongodb.PolygonNewsToArticles(*news)
+			mongoAggs, err := mongodb.PolygonHistoryToAggs(*history)
 			if err != nil {
 				// retry once
-				mongoNews, err = mongodb.PolygonNewsToArticles(*news)
+				mongoAggs, err = mongodb.PolygonHistoryToAggs(*history)
 				if err != nil {
-					errLogger.Printf("Error converting to MongDB types for %s from %s to %s : %s", symbol, currentStart.Format("2006-01-02T15:04:05Z"), currentEnd.Format("2006-01-02T15:04:05Z"), err.Error())
+					errLogger.Printf("Error converting to MongoDB aggregate types for %s from %s to %s : %s", symbol, currentStart.Format("2006-01-02T15:04:05Z"), currentEnd.Format("2006-01-02T15:04:05Z"), err.Error())
 					return
 				}
 			}
 
-			numInsertedArticles, err := mongodb.InsertArticles(scraper.mongoClient, scraper.articleDBName, mongoNews)
+			numInsertedAggs, err := mongodb.InsertAggregates(scraper.mongoClient, scraper.tickerDBName, mongoAggs)
 			if err != nil {
-				errLogger.Printf("Error inserting news to MongoDB for %s from %s to %s : %s", symbol, currentStart.Format("2006-01-02T15:04:05Z"), currentEnd.Format("2006-01-02T15:04:05Z"), err.Error())
+				errLogger.Printf("Error inserting aggregates to MongoDB for %s from %s to %s : %s", symbol, currentStart.Format("2006-01-02T15:04:05Z"), currentEnd.Format("2006-01-02T15:04:05Z"), err.Error())
 				return
 			}
-			if numInsertedArticles != len(mongoNews) {
-				errLogger.Printf("Some articles were not inserted for %s from %s to %s : %d/%d (articles inserted/total articles)", symbol, currentStart.Format("2006-01-02T15:04:05Z"), currentEnd.Format("2006-01-02T15:04:05Z"), numInsertedArticles, len(mongoNews))
-				// still count the inserted articles
+			if numInsertedAggs != len(mongoAggs) {
+				errLogger.Printf("Some aggregates were not inserted for %s from %s to %s : %d/%d (inserted/total)", symbol, currentStart.Format("2006-01-02T15:04:05Z"), currentEnd.Format("2006-01-02T15:04:05Z"), numInsertedAggs, len(mongoAggs))
 			}
-			insertedTotal += numInsertedArticles
-			skippedTotal += len(mongoNews) - numInsertedArticles
+			insertedTotal += numInsertedAggs
+			skippedTotal += len(mongoAggs) - numInsertedAggs
 		}()
 
 		// advance progress and window regardless of success or failure
 		_ = bar.Add(1)
 		stepDone++
-		currentStart = currentEnd
+
+		// Move to the day after currentEnd to avoid overlap
+		currentStart = currentEnd.Add(24 * time.Hour)
 	}
 
 	_ = bar.Finish()

@@ -8,23 +8,36 @@ import (
 )
 
 func main() {
-	runScraperFlag := flag.Bool("scrape", false, "Runs the scraper.")
+	runScraperFlag := flag.String("scrape", "", "Runs the scraper.")
 	flag.Parse()
 
-	if *runScraperFlag {
-		runScraper()
+	if *runScraperFlag != "" {
+		if *runScraperFlag == "aggs" {
+			runAggsScraper()
+		} else if *runScraperFlag == "news" {
+			runNewsScraper()
+		}
 	} else {
 		runServer()
 	}
 }
 
-func runScraper() {
+func runNewsScraper() {
 	scraper, err := scraper.New()
 	if err != nil {
 		log.Fatal("Failed to start scraper:", err)
 	}
 
 	scraper.ScrapeTickersNewsFromJSON("./scraper/article_instructions.json")
+}
+
+func runAggsScraper() {
+	scraper, err := scraper.New()
+	if err != nil {
+		log.Fatal("Failed to start scraper:", err)
+	}
+
+	scraper.ScrapeTickersAggregatesFromJSON("./scraper/aggs_instructions.json")
 }
 
 func runServer() {

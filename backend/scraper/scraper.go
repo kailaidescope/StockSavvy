@@ -22,7 +22,7 @@ var errLogger *log.Logger = log.New(os.Stderr, "ERROR: ", log.LstdFlags|log.Lsho
 type Scraper struct {
 	mongoClient   *mongo.Client
 	polygonClient *polygon.PolygonConnection
-	articleDBName string
+	tickerDBName  string
 }
 
 func New() (*Scraper, error) {
@@ -49,7 +49,7 @@ func New() (*Scraper, error) {
 	scraper := &Scraper{
 		mongoClient:   mongoClient,
 		polygonClient: polygonConnection,
-		articleDBName: os.Getenv("MONGO_INITDB_DATABASE"),
+		tickerDBName:  os.Getenv("MONGO_INITDB_DATABASE"),
 	}
 
 	return scraper, nil
@@ -290,7 +290,7 @@ func (scraper *Scraper) ScrapeTickerNews(symbol string, start, end time.Time, op
 				}
 			}
 
-			numInsertedArticles, err := mongodb.InsertArticles(scraper.mongoClient, scraper.articleDBName, mongoNews)
+			numInsertedArticles, err := mongodb.InsertArticles(scraper.mongoClient, scraper.tickerDBName, mongoNews)
 			if err != nil {
 				errLogger.Printf("Error inserting news to MongoDB for %s from %s to %s : %s", symbol, currentStart.Format("2006-01-02T15:04:05Z"), currentEnd.Format("2006-01-02T15:04:05Z"), err.Error())
 				return
