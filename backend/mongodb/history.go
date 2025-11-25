@@ -3,6 +3,7 @@ package mongodb
 import (
 	"context"
 	"financial-helper/polygon"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -26,28 +27,76 @@ func InsertHistory(client *mongo.Client, dbName string, aggregates []TickerDaily
 
 	coll := client.Database(dbName).Collection("ticker_aggregates")
 
-	models := make([]mongo.WriteModel, 0, len(aggregates))
+	// Build a list of unique (ticker,timestamp) pairs from input and $or clauses for a single DB query.
+	ors := make([]bson.M, 0, len(aggregates))
+	inputMap := make(map[string]TickerDailyAggregate, len(aggregates))
 	for _, a := range aggregates {
-		// Use the composite (ticker, timestamp) as the upsert key to match the index `(ticker_timestamp)`.
-		filter := bson.M{
-			"ticker":    a.Ticker,
-			"timestamp": a.Timestamp,
+		if a.Ticker == "" {
+			continue
 		}
-		// Only insert when no document with the same (ticker, timestamp) exists.
-		update := bson.M{"$setOnInsert": a}
-		models = append(models, mongo.NewUpdateOneModel().SetFilter(filter).SetUpdate(update).SetUpsert(true))
+		if a.Timestamp == primitive.DateTime(0) {
+			// skip invalid/missing timestamps for safety
+			continue
+		}
+		key := fmt.Sprintf("%s_%d", a.Ticker, int64(a.Timestamp))
+		if _, ok := inputMap[key]; ok {
+			continue // skip duplicates in the input slice
+		}
+		inputMap[key] = a
+		ors = append(ors, bson.M{"ticker": a.Ticker, "timestamp": a.Timestamp})
 	}
 
-	opts := options.BulkWrite().SetOrdered(false)
-	res, err := coll.BulkWrite(ctx, models, opts)
+	if len(ors) == 0 {
+		return 0, nil
+	}
+
+	// Query the DB once to determine which pairs already exist.
+	cursor, err := coll.Find(ctx, bson.M{"$or": ors}, options.Find().SetProjection(bson.M{"ticker": 1, "timestamp": 1}))
 	if err != nil {
-		if res != nil {
-			return int(res.InsertedCount + res.UpsertedCount), err
+		return 0, err
+	}
+	defer cursor.Close(ctx)
+
+	existing := make(map[string]struct{}, len(ors))
+	var tmp struct {
+		Ticker    string             `bson:"ticker"`
+		Timestamp primitive.DateTime `bson:"timestamp"`
+	}
+	for cursor.Next(ctx) {
+		if err := cursor.Decode(&tmp); err != nil {
+			continue
 		}
+		k := fmt.Sprintf("%s_%d", tmp.Ticker, int64(tmp.Timestamp))
+		existing[k] = struct{}{}
+	}
+	if err := cursor.Err(); err != nil {
 		return 0, err
 	}
 
-	return int(res.InsertedCount + res.UpsertedCount), nil
+	// Build insert list for aggregates that are not already present.
+	toInsert := make([]interface{}, 0, len(inputMap))
+	for k, a := range inputMap {
+		if _, ok := existing[k]; ok {
+			continue
+		}
+		toInsert = append(toInsert, a)
+	}
+
+	if len(toInsert) == 0 {
+		return 0, nil
+	}
+
+	// Insert missing docs. Use unordered insert to maximize throughput.
+	res, err := coll.InsertMany(ctx, toInsert, options.InsertMany().SetOrdered(false))
+	inserted := 0
+	if res != nil {
+		inserted = len(res.InsertedIDs)
+	}
+	if err != nil {
+		// If some documents were inserted before an error, return the count plus the error.
+		return inserted, err
+	}
+	return inserted, nil
 }
 
 type TickerDailyAggregate struct {

@@ -17,6 +17,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+const DB_NAME string = "test_stock_savvy"
+
 var testMongoClient *mongo.Client
 var testTeardown func()
 var testInitErr error
@@ -68,7 +70,6 @@ func TestInsertArticles(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	dbName := "test_stock_savvy"
 	polygonID := fmt.Sprintf("test-article-%d", time.Now().UnixNano())
 
 	article := Article{
@@ -86,7 +87,7 @@ func TestInsertArticles(t *testing.T) {
 		Insights:    []ArticleInsight{{Ticker: "AAPL", Sentiment: "neutral", SentimentReasoning: "stub"}},
 	}
 
-	inserted, err := InsertArticles(testMongoClient, dbName, []Article{article})
+	inserted, err := InsertArticles(testMongoClient, DB_NAME, []Article{article})
 	if err != nil {
 		t.Fatalf("InsertArticles returned error: %v", err)
 	}
@@ -95,7 +96,7 @@ func TestInsertArticles(t *testing.T) {
 	}
 
 	// verify it exists in the DB
-	coll := testMongoClient.Database(dbName).Collection("ticker_news")
+	coll := testMongoClient.Database(DB_NAME).Collection("ticker_news")
 	var found Article
 	if err := coll.FindOne(ctx, bson.M{"polygon_id": polygonID}).Decode(&found); err != nil {
 		t.Fatalf("expected to find inserted article, but got error: %v", err)
@@ -119,7 +120,6 @@ func TestInsertMultipleArticles(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
 	defer cancel()
 
-	dbName := "test_stock_savvy"
 	prefix := fmt.Sprintf("test-article-batch-%d-", time.Now().UnixNano())
 
 	tickers := []string{"AAPL", "MSFT", "GOOG", "TSLA", "AMZN"}
@@ -152,7 +152,7 @@ func TestInsertMultipleArticles(t *testing.T) {
 		articles = append(articles, a)
 	}
 
-	inserted, err := InsertArticles(testMongoClient, dbName, articles)
+	inserted, err := InsertArticles(testMongoClient, DB_NAME, articles)
 	if err != nil {
 		t.Fatalf("InsertArticles (batch) returned error: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestInsertMultipleArticles(t *testing.T) {
 	}
 
 	// verify each inserted doc exists
-	coll := testMongoClient.Database(dbName).Collection("ticker_news")
+	coll := testMongoClient.Database(DB_NAME).Collection("ticker_news")
 	for _, pid := range polygonIDs {
 		var found Article
 		if err := coll.FindOne(ctx, bson.M{"polygon_id": pid}).Decode(&found); err != nil {

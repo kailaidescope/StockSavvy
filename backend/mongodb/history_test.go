@@ -19,13 +19,12 @@ func TestInsertHistory(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	dbName := "test_stock_savvy"
 	ticker := fmt.Sprintf("TEST-%d", time.Now().UnixNano())
 
 	agg := TickerDailyAggregate{
 		ID:           primitive.NewObjectID(),
 		Ticker:       ticker,
-		Volume:       12345.0,
+		Volume:       6969.0,
 		VWAP:         150.5,
 		Open:         149.0,
 		Close:        151.0,
@@ -36,7 +35,25 @@ func TestInsertHistory(t *testing.T) {
 		OTC:          false,
 	}
 
-	inserted, err := InsertHistory(testMongoClient, dbName, []TickerDailyAggregate{agg})
+	/* tsStr := "2025-11-03T16:46:51.477+00:00"
+	tParsed, err := time.Parse(time.RFC3339Nano, tsStr)
+	if err != nil {
+		t.Fatalf("failed to parse timestamp %q: %v", tsStr, err)
+	}
+	timestamp := primitive.NewDateTimeFromTime(tParsed.UTC())
+
+	ticker = "batch-test-1764109200477013000-9-TSLA"
+
+	id, err := primitive.ObjectIDFromHex("69262b90fed140f33f67253b")
+	if err != nil {
+		t.Fatalf("Faield to parse obj id %s", err.Error())
+	}
+
+	agg.Timestamp = timestamp
+	agg.ID = id
+	agg.Ticker = ticker */
+
+	inserted, err := InsertHistory(testMongoClient, DB_NAME, []TickerDailyAggregate{agg})
 	if err != nil {
 		t.Fatalf("InsertHistory returned error: %v", err)
 	}
@@ -45,7 +62,7 @@ func TestInsertHistory(t *testing.T) {
 	}
 
 	// verify it exists in the DB
-	coll := testMongoClient.Database(dbName).Collection("ticker_aggregates")
+	coll := testMongoClient.Database(DB_NAME).Collection("ticker_aggregates")
 	var found TickerDailyAggregate
 	if err := coll.FindOne(ctx, bson.M{"ticker": ticker, "timestamp": agg.Timestamp}).Decode(&found); err != nil {
 		t.Fatalf("expected to find inserted aggregate, but got error: %v", err)
@@ -54,10 +71,10 @@ func TestInsertHistory(t *testing.T) {
 		t.Fatalf("found aggregate ticker mismatch: expected %s got %s", ticker, found.Ticker)
 	}
 
-	/* // optional cleanup
-	   if _, err := coll.DeleteMany(ctx, bson.M{"ticker": ticker}); err != nil {
-	       t.Logf("cleanup DeleteMany error (non-fatal): %v", err)
-	   } */
+	// optional cleanup
+	if _, err := coll.DeleteMany(ctx, bson.M{"ticker": ticker}); err != nil {
+		t.Logf("cleanup DeleteMany error (non-fatal): %v", err)
+	}
 }
 
 func TestInsertMultipleHistory(t *testing.T) {
@@ -68,7 +85,6 @@ func TestInsertMultipleHistory(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
 	defer cancel()
 
-	dbName := "test_stock_savvy"
 	prefix := fmt.Sprintf("batch-test-%d-", time.Now().UnixNano())
 
 	aggs := make([]TickerDailyAggregate, 0, 20)
@@ -99,7 +115,7 @@ func TestInsertMultipleHistory(t *testing.T) {
 		aggs = append(aggs, a)
 	}
 
-	inserted, err := InsertHistory(testMongoClient, dbName, aggs)
+	inserted, err := InsertHistory(testMongoClient, DB_NAME, aggs)
 	if err != nil {
 		t.Fatalf("InsertHistory (batch) returned error: %v", err)
 	}
@@ -108,7 +124,7 @@ func TestInsertMultipleHistory(t *testing.T) {
 	}
 
 	// verify each inserted doc exists
-	coll := testMongoClient.Database(dbName).Collection("ticker_aggregates")
+	coll := testMongoClient.Database(DB_NAME).Collection("ticker_aggregates")
 	for _, tk := range tickerNames {
 		var found TickerDailyAggregate
 		if err := coll.FindOne(ctx, bson.M{"ticker": tk}).Decode(&found); err != nil {
@@ -120,7 +136,7 @@ func TestInsertMultipleHistory(t *testing.T) {
 	}
 
 	// cleanup - optional
-	/* if _, err := coll.DeleteMany(ctx, bson.M{"ticker": bson.M{"$regex": "^" + prefix}}); err != nil {
-	    t.Logf("cleanup DeleteMany error (non-fatal): %v", err)
-	} */
+	if _, err := coll.DeleteMany(ctx, bson.M{"ticker": bson.M{"$regex": "^" + prefix}}); err != nil {
+		t.Logf("cleanup DeleteMany error (non-fatal): %v", err)
+	}
 }
