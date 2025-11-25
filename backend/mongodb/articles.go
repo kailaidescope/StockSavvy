@@ -80,17 +80,18 @@ func InsertArticles(client *mongo.Client, dbName string, articles []Article) (in
 	return int(res.InsertedCount + res.UpsertedCount), nil
 }
 
-// GetArticlesByTicker returns up to `limit` articles containing `ticker` in the `tickers` array,
-// sorted by `published_at` descending. If limit <= 0 a default of 100 is used.
-func GetArticlesByTicker(client *mongo.Client, dbName, ticker string, limit int) ([]Article, error) {
+// GetArticlesByTicker returns articles containing `ticker` in the `tickers` array,
+// sorted by `published_at` descending.
+// Pagination/windowing:
+// - If pageSize > 0: use pagination with 1-based page; skip = (page-1)*pageSize, limit = pageSize.
+// - Else if limit > 0: return up to `limit` documents.
+// - Else: return all matching documents.
+func GetArticlesByTicker(client *mongo.Client, dbName, ticker string, limit, page, pageSize int) ([]Article, error) {
 	if client == nil {
 		return nil, mongo.ErrClientDisconnected
 	}
 	if ticker == "" {
 		return nil, nil
-	}
-	if limit <= 0 {
-		limit = 100
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -99,7 +100,18 @@ func GetArticlesByTicker(client *mongo.Client, dbName, ticker string, limit int)
 	coll := client.Database(dbName).Collection("ticker_news")
 
 	filter := bson.M{"tickers": ticker}
-	findOpts := options.Find().SetSort(bson.D{{Key: "published_at", Value: -1}}).SetLimit(int64(limit))
+	findOpts := options.Find().SetSort(bson.D{{Key: "published_at", Value: -1}})
+
+	// Apply pagination or limit
+	if pageSize > 0 {
+		if page < 1 {
+			page = 1
+		}
+		skip := int64((page - 1) * pageSize)
+		findOpts.SetSkip(skip).SetLimit(int64(pageSize))
+	} else if limit > 0 {
+		findOpts.SetLimit(int64(limit))
+	}
 
 	cursor, err := coll.Find(ctx, filter, findOpts)
 	if err != nil {
@@ -107,11 +119,10 @@ func GetArticlesByTicker(client *mongo.Client, dbName, ticker string, limit int)
 	}
 	defer cursor.Close(ctx)
 
-	var out []Article
+	out := make([]Article, 0)
 	for cursor.Next(ctx) {
 		var a Article
 		if err := cursor.Decode(&a); err != nil {
-			// skip malformed docs but continue
 			continue
 		}
 		out = append(out, a)
@@ -122,18 +133,15 @@ func GetArticlesByTicker(client *mongo.Client, dbName, ticker string, limit int)
 	return out, nil
 }
 
-// GetArticlesByTickerOverRange returns up to `limit` articles for `ticker` where
-// published_at is in [start, end). If start.IsZero() it is treated as Unix epoch.
-// If end.IsZero() it is treated as time.Now(). If limit <= 0 a default of 100 is used.
-func GetArticlesByTickerOverRange(client *mongo.Client, dbName, ticker string, start, end time.Time, limit int) ([]Article, error) {
+// GetArticlesByTickerOverRange returns articles for `ticker` where published_at is in [start, end),
+// sorted by `published_at` descending.
+// Pagination/windowing behavior mirrors GetArticlesByTicker.
+func GetArticlesByTickerOverRange(client *mongo.Client, dbName, ticker string, start, end time.Time, limit, page, pageSize int) ([]Article, error) {
 	if client == nil {
 		return nil, mongo.ErrClientDisconnected
 	}
 	if ticker == "" {
 		return nil, nil
-	}
-	if limit <= 0 {
-		limit = 100
 	}
 	if start.IsZero() {
 		start = time.Unix(0, 0).UTC()
@@ -154,7 +162,18 @@ func GetArticlesByTickerOverRange(client *mongo.Client, dbName, ticker string, s
 			"$lt":  primitive.NewDateTimeFromTime(end),
 		},
 	}
-	findOpts := options.Find().SetSort(bson.D{{Key: "published_at", Value: -1}}).SetLimit(int64(limit))
+	findOpts := options.Find().SetSort(bson.D{{Key: "published_at", Value: -1}})
+
+	// Apply pagination or limit
+	if pageSize > 0 {
+		if page < 1 {
+			page = 1
+		}
+		skip := int64((page - 1) * pageSize)
+		findOpts.SetSkip(skip).SetLimit(int64(pageSize))
+	} else if limit > 0 {
+		findOpts.SetLimit(int64(limit))
+	}
 
 	cursor, err := coll.Find(ctx, filter, findOpts)
 	if err != nil {
@@ -162,7 +181,7 @@ func GetArticlesByTickerOverRange(client *mongo.Client, dbName, ticker string, s
 	}
 	defer cursor.Close(ctx)
 
-	var out []Article
+	out := make([]Article, 0)
 	for cursor.Next(ctx) {
 		var a Article
 		if err := cursor.Decode(&a); err != nil {
@@ -176,15 +195,12 @@ func GetArticlesByTickerOverRange(client *mongo.Client, dbName, ticker string, s
 	return out, nil
 }
 
-// GetArticlesOverRange returns up to `limit` articles with published_at in [start, end).
-// If start.IsZero() it is treated as Unix epoch. If end.IsZero() it is treated as time.Now().
-// If limit <= 0 a default of 100 is used.
-func GetArticlesOverRange(client *mongo.Client, dbName string, start, end time.Time, limit int) ([]Article, error) {
+// GetArticlesOverRange returns articles with published_at in [start, end),
+// sorted by `published_at` descending.
+// Pagination/windowing behavior mirrors GetArticlesByTicker.
+func GetArticlesOverRange(client *mongo.Client, dbName string, start, end time.Time, limit, page, pageSize int) ([]Article, error) {
 	if client == nil {
 		return nil, mongo.ErrClientDisconnected
-	}
-	if limit <= 0 {
-		limit = 100
 	}
 	if start.IsZero() {
 		start = time.Unix(0, 0).UTC()
@@ -204,7 +220,18 @@ func GetArticlesOverRange(client *mongo.Client, dbName string, start, end time.T
 			"$lt":  primitive.NewDateTimeFromTime(end),
 		},
 	}
-	findOpts := options.Find().SetSort(bson.D{{Key: "published_at", Value: -1}}).SetLimit(int64(limit))
+	findOpts := options.Find().SetSort(bson.D{{Key: "published_at", Value: -1}})
+
+	// Apply pagination or limit
+	if pageSize > 0 {
+		if page < 1 {
+			page = 1
+		}
+		skip := int64((page - 1) * pageSize)
+		findOpts.SetSkip(skip).SetLimit(int64(pageSize))
+	} else if limit > 0 {
+		findOpts.SetLimit(int64(limit))
+	}
 
 	cursor, err := coll.Find(ctx, filter, findOpts)
 	if err != nil {
@@ -212,7 +239,7 @@ func GetArticlesOverRange(client *mongo.Client, dbName string, start, end time.T
 	}
 	defer cursor.Close(ctx)
 
-	var out []Article
+	out := make([]Article, 0)
 	for cursor.Next(ctx) {
 		var a Article
 		if err := cursor.Decode(&a); err != nil {

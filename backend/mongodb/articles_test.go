@@ -223,7 +223,7 @@ func TestGetArticlesByTicker(t *testing.T) {
 	}
 
 	// call function under test
-	got, err := GetArticlesByTicker(testMongoClient, DB_NAME, ticker, 10)
+	got, err := GetArticlesByTicker(testMongoClient, DB_NAME, ticker, 10, 0, 0)
 	if err != nil {
 		t.Fatalf("GetArticlesByTicker returned error: %v", err)
 	}
@@ -288,7 +288,7 @@ func TestGetArticlesByTickerOverRange(t *testing.T) {
 	start := now.Add(-24 * time.Hour)
 	end := now
 
-	got, err := GetArticlesByTickerOverRange(testMongoClient, DB_NAME, ticker, start, end, 10)
+	got, err := GetArticlesByTickerOverRange(testMongoClient, DB_NAME, ticker, start, end, 10, 0, 0)
 	if err != nil {
 		t.Fatalf("GetArticlesByTickerOverRange returned error: %v", err)
 	}
@@ -367,7 +367,7 @@ func TestGetArticlesOverRange(t *testing.T) {
 	start := now.Add(-24 * time.Hour)
 	end := now
 
-	got, err := GetArticlesOverRange(testMongoClient, DB_NAME, start, end, 10)
+	got, err := GetArticlesOverRange(testMongoClient, DB_NAME, start, end, 10, 0, 0)
 	if err != nil {
 		t.Fatalf("GetArticlesOverRange returned error: %v", err)
 	}
@@ -385,6 +385,287 @@ func TestGetArticlesOverRange(t *testing.T) {
 	}
 
 	//log.printf("Got article(s): %#v", got)
+
+	// cleanup
+	coll := testMongoClient.Database(DB_NAME).Collection("ticker_news")
+	if _, err := coll.DeleteMany(ctx, bson.M{"polygon_id": bson.M{"$regex": "^" + prefix}}); err != nil {
+		t.Logf("cleanup error: %v", err)
+	}
+}
+
+// TestGetArticlesByTickerPagination verifies page-based pagination for GetArticlesByTicker.
+func TestGetArticlesByTickerPagination(t *testing.T) {
+	if testMongoClient == nil {
+		t.Skip("test mongo client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+	defer cancel()
+
+	prefix := fmt.Sprintf("test-pag-ticker-%d-", time.Now().UnixNano())
+	ticker := "PAGTICK"
+	count := 7
+	pageSize := 3
+
+	// create `count` articles with descending published_at (i=0 newest)
+	articles := make([]Article, 0, count)
+	expectedOrder := make([]string, 0, count)
+	now := time.Now().UTC()
+	for i := 0; i < count; i++ {
+		pid := fmt.Sprintf("%s%d-%d", prefix, i, rand.Intn(1_000_000))
+		pub := now.Add(-time.Duration(i) * time.Minute) // i=0 newest
+		a := Article{
+			ID:          primitive.NewObjectID(),
+			PolygonID:   pid,
+			Publisher:   ArticlePublisher{Name: "Pag Publisher"},
+			Title:       fmt.Sprintf("Pag Article %d", i),
+			Author:      "pag-tester",
+			PublishedAt: primitive.NewDateTimeFromTime(pub),
+			ArticleURL:  "https://example.test/article",
+			Tickers:     []string{ticker},
+		}
+		articles = append(articles, a)
+		expectedOrder = append(expectedOrder, pid)
+	}
+
+	inserted, err := InsertArticles(testMongoClient, DB_NAME, articles)
+	if err != nil {
+		t.Fatalf("InsertArticles returned error: %v", err)
+	}
+	if inserted != len(articles) {
+		t.Fatalf("expected %d inserted documents, got %d", len(articles), inserted)
+	}
+
+	// page 1 should return newest 3 (expectedOrder[0..2])
+	got1, err := GetArticlesByTicker(testMongoClient, DB_NAME, ticker, 0, 1, pageSize)
+	if err != nil {
+		t.Fatalf("GetArticlesByTicker page1 returned error: %v", err)
+	}
+	if len(got1) != pageSize {
+		t.Fatalf("expected %d results on page1, got %d", pageSize, len(got1))
+	}
+	for i := 0; i < pageSize; i++ {
+		if got1[i].PolygonID != expectedOrder[i] {
+			t.Fatalf("page1: expected polygon_id %s at index %d, got %s", expectedOrder[i], i, got1[i].PolygonID)
+		}
+	}
+
+	// page 2 should return next 3 (expectedOrder[3..5])
+	got2, err := GetArticlesByTicker(testMongoClient, DB_NAME, ticker, 0, 2, pageSize)
+	if err != nil {
+		t.Fatalf("GetArticlesByTicker page2 returned error: %v", err)
+	}
+	if len(got2) != pageSize {
+		t.Fatalf("expected %d results on page2, got %d", pageSize, len(got2))
+	}
+	for i := 0; i < pageSize; i++ {
+		if got2[i].PolygonID != expectedOrder[i+pageSize] {
+			t.Fatalf("page2: expected polygon_id %s at index %d, got %s", expectedOrder[i+pageSize], i, got2[i].PolygonID)
+		}
+	}
+
+	// page 3 should return the remainder (1 item)
+	got3, err := GetArticlesByTicker(testMongoClient, DB_NAME, ticker, 0, 3, pageSize)
+	if err != nil {
+		t.Fatalf("GetArticlesByTicker page3 returned error: %v", err)
+	}
+	expectedLast := count - 2*pageSize // 7 - 6 = 1
+	if len(got3) != expectedLast {
+		t.Fatalf("expected %d results on page3, got %d", expectedLast, len(got3))
+	}
+	if got3[0].PolygonID != expectedOrder[2*pageSize] {
+		t.Fatalf("page3: expected polygon_id %s, got %s", expectedOrder[2*pageSize], got3[0].PolygonID)
+	}
+
+	// cleanup
+	coll := testMongoClient.Database(DB_NAME).Collection("ticker_news")
+	if _, err := coll.DeleteMany(ctx, bson.M{"polygon_id": bson.M{"$regex": "^" + prefix}}); err != nil {
+		t.Logf("cleanup error: %v", err)
+	}
+}
+
+// TestGetArticlesByTickerOverRangePagination verifies pagination for ticker+range queries.
+func TestGetArticlesByTickerOverRangePagination(t *testing.T) {
+	if testMongoClient == nil {
+		t.Skip("test mongo client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+	defer cancel()
+
+	prefix := fmt.Sprintf("test-pag-range-%d-", time.Now().UnixNano())
+	ticker := "RANGEPAG"
+	total := 8
+	pageSize := 3
+
+	now := time.Now().UTC()
+	articles := make([]Article, 0, total)
+	expectedOrder := make([]string, 0, total)
+
+	// create `total` articles across 8 minutes so ordering is clear
+	for i := 0; i < total; i++ {
+		pid := fmt.Sprintf("%s%d-%d", prefix, i, rand.Intn(1_000_000))
+		pub := now.Add(-time.Duration(i) * time.Minute) // i=0 newest
+		a := Article{
+			ID:          primitive.NewObjectID(),
+			PolygonID:   pid,
+			Publisher:   ArticlePublisher{Name: "RangePag Publisher"},
+			Title:       fmt.Sprintf("RangePag Article %d", i),
+			Author:      "rangepag-tester",
+			PublishedAt: primitive.NewDateTimeFromTime(pub),
+			ArticleURL:  "https://example.test/article",
+			Tickers:     []string{ticker},
+		}
+		articles = append(articles, a)
+		expectedOrder = append(expectedOrder, pid)
+	}
+
+	inserted, err := InsertArticles(testMongoClient, DB_NAME, articles)
+	if err != nil {
+		t.Fatalf("InsertArticles returned error: %v", err)
+	}
+	if inserted != len(articles) {
+		t.Fatalf("expected %d inserted documents, got %d", len(articles), inserted)
+	}
+
+	// choose a start/end that include all created articles (last 24 hours)
+	start := now.Add(-24 * time.Hour)
+	end := now.Add(1 * time.Minute)
+
+	// page 1
+	got1, err := GetArticlesByTickerOverRange(testMongoClient, DB_NAME, ticker, start, end, 0, 1, pageSize)
+	if err != nil {
+		t.Fatalf("GetArticlesByTickerOverRange page1 error: %v", err)
+	}
+	if len(got1) != pageSize {
+		t.Fatalf("expected %d results on page1, got %d", pageSize, len(got1))
+	}
+	for i := 0; i < pageSize; i++ {
+		if got1[i].PolygonID != expectedOrder[i] {
+			t.Fatalf("page1: expected polygon_id %s at index %d, got %s", expectedOrder[i], i, got1[i].PolygonID)
+		}
+	}
+
+	// page 2
+	got2, err := GetArticlesByTickerOverRange(testMongoClient, DB_NAME, ticker, start, end, 0, 2, pageSize)
+	if err != nil {
+		t.Fatalf("GetArticlesByTickerOverRange page2 error: %v", err)
+	}
+	if len(got2) != pageSize {
+		t.Fatalf("expected %d results on page2, got %d", pageSize, len(got2))
+	}
+	for i := 0; i < pageSize; i++ {
+		if got2[i].PolygonID != expectedOrder[i+pageSize] {
+			t.Fatalf("page2: expected polygon_id %s at index %d, got %s", expectedOrder[i+pageSize], i, got2[i].PolygonID)
+		}
+	}
+
+	// page 3 (should have total - 6 = 2 items)
+	got3, err := GetArticlesByTickerOverRange(testMongoClient, DB_NAME, ticker, start, end, 0, 3, pageSize)
+	if err != nil {
+		t.Fatalf("GetArticlesByTickerOverRange page3 error: %v", err)
+	}
+	expectedLast := total - 2*pageSize
+	if len(got3) != expectedLast {
+		t.Fatalf("expected %d results on page3, got %d", expectedLast, len(got3))
+	}
+	if got3[0].PolygonID != expectedOrder[2*pageSize] {
+		t.Fatalf("page3: expected polygon_id %s, got %s", expectedOrder[2*pageSize], got3[0].PolygonID)
+	}
+
+	// cleanup
+	coll := testMongoClient.Database(DB_NAME).Collection("ticker_news")
+	if _, err := coll.DeleteMany(ctx, bson.M{"polygon_id": bson.M{"$regex": "^" + prefix}}); err != nil {
+		t.Logf("cleanup error: %v", err)
+	}
+}
+
+// TestGetArticlesOverRangePagination verifies pagination for global range queries.
+func TestGetArticlesOverRangePagination(t *testing.T) {
+	if testMongoClient == nil {
+		t.Skip("test mongo client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+	defer cancel()
+
+	prefix := fmt.Sprintf("test-pag-over-%d-", time.Now().UnixNano())
+	total := 9
+	pageSize := 4
+
+	now := time.Now().UTC()
+	articles := make([]Article, 0, total)
+	expectedOrder := make([]string, 0, total)
+
+	// create `total` articles (different tickers) so global range covers them
+	for i := 0; i < total; i++ {
+		pid := fmt.Sprintf("%s%d-%d", prefix, i, rand.Intn(1_000_000))
+		pub := now.Add(-time.Duration(i) * time.Minute)
+		a := Article{
+			ID:          primitive.NewObjectID(),
+			PolygonID:   pid,
+			Publisher:   ArticlePublisher{Name: "OverPag Publisher"},
+			Title:       fmt.Sprintf("OverPag Article %d", i),
+			Author:      "overpag-tester",
+			PublishedAt: primitive.NewDateTimeFromTime(pub),
+			ArticleURL:  "https://example.test/article",
+			Tickers:     []string{fmt.Sprintf("T%d", i)},
+		}
+		articles = append(articles, a)
+		expectedOrder = append(expectedOrder, pid)
+	}
+
+	inserted, err := InsertArticles(testMongoClient, DB_NAME, articles)
+	if err != nil {
+		t.Fatalf("InsertArticles returned error: %v", err)
+	}
+	if inserted != len(articles) {
+		t.Fatalf("expected %d inserted documents, got %d", len(articles), inserted)
+	}
+
+	start := now.Add(-24 * time.Hour)
+	end := now.Add(1 * time.Minute)
+
+	// page 1
+	got1, err := GetArticlesOverRange(testMongoClient, DB_NAME, start, end, 0, 1, pageSize)
+	if err != nil {
+		t.Fatalf("GetArticlesOverRange page1 error: %v", err)
+	}
+	if len(got1) != pageSize {
+		t.Fatalf("expected %d results on page1, got %d", pageSize, len(got1))
+	}
+	for i := 0; i < pageSize; i++ {
+		if got1[i].PolygonID != expectedOrder[i] {
+			t.Fatalf("page1: expected polygon_id %s at index %d, got %s", expectedOrder[i], i, got1[i].PolygonID)
+		}
+	}
+
+	// page 2
+	got2, err := GetArticlesOverRange(testMongoClient, DB_NAME, start, end, 0, 2, pageSize)
+	if err != nil {
+		t.Fatalf("GetArticlesOverRange page2 error: %v", err)
+	}
+	if len(got2) != pageSize {
+		t.Fatalf("expected %d results on page2, got %d", pageSize, len(got2))
+	}
+	for i := 0; i < pageSize; i++ {
+		if got2[i].PolygonID != expectedOrder[i+pageSize] {
+			t.Fatalf("page2: expected polygon_id %s at index %d, got %s", expectedOrder[i+pageSize], i, got2[i].PolygonID)
+		}
+	}
+
+	// page 3 (should have total - 8 = 1)
+	got3, err := GetArticlesOverRange(testMongoClient, DB_NAME, start, end, 0, 3, pageSize)
+	if err != nil {
+		t.Fatalf("GetArticlesOverRange page3 error: %v", err)
+	}
+	expectedLast := total - 2*pageSize
+	if len(got3) != expectedLast {
+		t.Fatalf("expected %d results on page3, got %d", expectedLast, len(got3))
+	}
+	if got3[0].PolygonID != expectedOrder[2*pageSize] {
+		t.Fatalf("page3: expected polygon_id %s, got %s", expectedOrder[2*pageSize], got3[0].PolygonID)
+	}
 
 	// cleanup
 	coll := testMongoClient.Database(DB_NAME).Collection("ticker_news")
