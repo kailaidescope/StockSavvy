@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log"
 	"os"
-	"path"
+	"path/filepath"
 	"strconv"
 
 	"github.com/joho/godotenv"
@@ -112,15 +112,19 @@ func LoadLocalEnvironment() error {
 
 	log.Println("Loading environment variables...")
 	// Find root directory
-	for {
+	search_limit := 5
+	for i := 0; i < search_limit+1; i++ {
 		workingDirectoryPath, err := os.Getwd()
 		if err != nil {
 			return errors.Join(errors.New("could not get current working directory for environment file loading"), err)
 		}
-		_, workingDirectoryName := path.Split(workingDirectoryPath)
-		log.Println("Current directory:", workingDirectoryName)
+		_, workingDirectoryName := filepath.Split(workingDirectoryPath)
+		log.Printf("Current directory: %s", workingDirectoryName)
 		if workingDirectoryName == "backend" {
 			break
+		}
+		if i == search_limit {
+			return errors.New("couldn't find backend directory")
 		}
 		os.Chdir("..")
 	}

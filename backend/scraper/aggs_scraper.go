@@ -256,7 +256,7 @@ func (scraper *Scraper) ScrapeTickerAggregates(symbol string, start, end time.Ti
 				}
 			}
 
-			numInsertedAggs, err := mongodb.InsertAggregates(scraper.mongoClient, scraper.tickerDBName, mongoAggs)
+			numInsertedAggs, err := mongodb.InsertAggregates(scraper.mongoClient, scraper.mongoDBName, mongoAggs)
 			if err != nil {
 				errLogger.Printf("Error inserting aggregates to MongoDB for %s from %s to %s : %s", symbol, currentStart.Format("2006-01-02T15:04:05Z"), currentEnd.Format("2006-01-02T15:04:05Z"), err.Error())
 				return

@@ -1,6 +1,7 @@
 package scraper
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"financial-helper/environment"
@@ -20,9 +21,11 @@ import (
 var errLogger *log.Logger = log.New(os.Stderr, "ERROR: ", log.LstdFlags|log.Lshortfile)
 
 type Scraper struct {
-	mongoClient   *mongo.Client
-	polygonClient *polygon.PolygonConnection
-	tickerDBName  string
+	mongoClient             *mongo.Client
+	polygonClient           *polygon.PolygonConnection
+	mongoDBName             string
+	MongoDisconnect         func(context.Context)
+	mongoArticlesCollection *mongo.Collection
 }
 
 func New() (*Scraper, error) {
@@ -49,7 +52,15 @@ func New() (*Scraper, error) {
 	scraper := &Scraper{
 		mongoClient:   mongoClient,
 		polygonClient: polygonConnection,
-		tickerDBName:  os.Getenv("MONGO_INITDB_DATABASE"),
+		mongoDBName:   os.Getenv("MONGO_INITDB_DATABASE"),
+		MongoDisconnect: func(context context.Context) {
+			if err := mongoClient.Disconnect(context); err != nil {
+				log.Println("Failed to gracefully disconnect from MongoDB:", err)
+				return
+			}
+			log.Println("Disconnected from MongoDB gracefully.")
+		},
+		mongoArticlesCollection: mongoClient.Database(os.Getenv("MONGO_INITDB_DATABASE")).Collection("ticker_news"),
 	}
 
 	return scraper, nil
@@ -290,7 +301,7 @@ func (scraper *Scraper) ScrapeTickerNews(symbol string, start, end time.Time, op
 				}
 			}
 
-			numInsertedArticles, err := mongodb.InsertArticles(scraper.mongoClient, scraper.tickerDBName, mongoNews)
+			numInsertedArticles, err := mongodb.InsertArticles(scraper.mongoClient, scraper.mongoDBName, mongoNews)
 			if err != nil {
 				errLogger.Printf("Error inserting news to MongoDB for %s from %s to %s : %s", symbol, currentStart.Format("2006-01-02T15:04:05Z"), currentEnd.Format("2006-01-02T15:04:05Z"), err.Error())
 				return

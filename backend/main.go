@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"financial-helper/scraper"
 	"financial-helper/server"
 	"flag"
 	"log"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func main() {
@@ -12,13 +15,34 @@ func main() {
 	flag.Parse()
 
 	if *runScraperFlag != "" {
-		if *runScraperFlag == "aggs" {
+		switch *runScraperFlag {
+		case "aggs":
 			runAggsScraper()
-		} else if *runScraperFlag == "news" {
+		case "news":
 			runNewsScraper()
+		case "sentiment":
+			runSentimentUpdater()
+		default:
+			log.Printf("%s is not a valid scraping option", *runScraperFlag)
 		}
+
 	} else {
 		runServer()
+	}
+}
+
+func runSentimentUpdater() {
+	scraper, err := scraper.New()
+	if err != nil {
+		log.Fatal("Failed to start sentiment updater:", err)
+	}
+	defer scraper.MongoDisconnect(context.Background())
+
+	queryParam := bson.D{{Key: "insights", Value: bson.M{"$exists": false}}}
+
+	_, err = scraper.PaginateAllArticles(1, 2, queryParam)
+	if err != nil {
+		log.Println("Error paginating articles:", err)
 	}
 }
 
@@ -27,6 +51,7 @@ func runNewsScraper() {
 	if err != nil {
 		log.Fatal("Failed to start scraper:", err)
 	}
+	defer scraper.MongoDisconnect(context.Background())
 
 	scraper.ScrapeTickersNewsFromJSON("./scraper/article_instructions.json")
 }
@@ -36,6 +61,7 @@ func runAggsScraper() {
 	if err != nil {
 		log.Fatal("Failed to start scraper:", err)
 	}
+	defer scraper.MongoDisconnect(context.Background())
 
 	scraper.ScrapeTickersAggregatesFromJSON("./scraper/aggs_instructions.json")
 }

@@ -3,3 +3,4 @@
 analytics/data
 model/data
 **.env
+**.pkl
